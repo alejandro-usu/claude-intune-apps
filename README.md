@@ -10,6 +10,7 @@ the `.intunewin`. Installers and packages are never committed.
 |---|---|
 | [Python-3.14](apps/Python-3.14/) | Python 3.14.7, all users, on PATH, with the `py` launcher |
 | [PyCharm](apps/PyCharm/) | PyCharm 2026.2.3, with Python 3.14 as the default interpreter and first-run prompts pre-answered. Depends on Python-3.14. |
+| [MATLAB](apps/MATLAB/) | MATLAB R2026b, licensed from a network license server. One package for two Intune apps: MATLAB + Simulink, or MATLAB + Simulink + common toolboxes. The package has no installers; mpm downloads the products from MathWorks during the install. |
 
 ## Layout
 
