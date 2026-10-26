@@ -124,9 +124,14 @@ def link_or_copy(src, dst):
 
 
 def build(app):
+    if app not in app_names():
+        sys.exit(f"Unknown app '{app}'. Pass a folder name under apps/: {', '.join(app_names())}")
     manifest = load_manifest(app)
     print(f"== {app}: {manifest['name']} ({manifest['version']})")
     app_out = os.path.join(OUT, app)
+    # Belt and braces: everything this function deletes must be inside out/.
+    if os.path.commonpath([os.path.realpath(app_out), os.path.realpath(OUT)]) != os.path.realpath(OUT):
+        sys.exit(f"Refusing to build outside {OUT}: {app_out}")
     staging = os.path.join(app_out, "staging")
     shutil.rmtree(app_out, ignore_errors=True)
     source = os.path.join(APPS, app, "source")

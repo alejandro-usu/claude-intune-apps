@@ -72,11 +72,25 @@ pip, file associations and Start menu shortcuts are included by default.
 ## Updating to a new 3.14 patch release
 
 Patch releases install over this one in the same folder, so apps that point at
-`C:\Program Files\Python314\python.exe` keep working. To update:
-1. Change the URL, hash, version and `setupFile` in `app.json`.
-2. Build it, and add it to Intune as a new app with the new file name and version in the
-   commands and detection rule.
-3. Set it to supersede this app, with **Uninstall previous version** set to **No**.
+`C:\Program Files\Python314\python.exe` keep working.
+
+Update this Intune app in place rather than adding a new app that supersedes it. PyCharm
+depends on this app, and Intune reports a conflict when an app's dependency is superseded
+by another app ("A depends on B, C supersedes B" in Microsoft's
+[supersedence docs](https://learn.microsoft.com/en-us/intune/app-management/deployment/configure-win32-supersedence)).
+
+1. Change the URL, hash, version and `setupFile` in `app.json`, and build it.
+2. In Intune, edit the existing Python app:
+   - **App information:** upload the new `.intunewin`, and update the version (and the name, if
+     it includes the patch version).
+   - **Program:** change the installer file name in the install and uninstall commands.
+   - **Detection rules:** change the `Version` value to the new version.
+3. Devices then fail the new detection rule, and Intune installs the update over the old
+   version. Apps that depend on Python keep their dependency.
+
+Moving to a new minor version (3.15) is different, because the folder changes: add a new
+Python app, point PyCharm's dependency and default interpreter at it, and supersede the old
+Python app only after nothing depends on it.
 
 ## Future: Python 3.16 and the install manager
 

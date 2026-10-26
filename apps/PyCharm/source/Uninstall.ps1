@@ -35,7 +35,9 @@ try {
     $uninstaller = Join-Path $PyCharmDir 'bin\Uninstall.exe'
     if (Test-Path -LiteralPath $uninstaller) {
         Write-Output "Running: `"$uninstaller`" /S"
-        Start-Process -FilePath $uninstaller -ArgumentList '/S' -Wait
+        $process = Start-Process -FilePath $uninstaller -ArgumentList '/S' -Wait -PassThru
+        # Logged only: this is the exit code of the stub, not of the real uninstall (below).
+        Write-Output "Exit code: $($process.ExitCode)"
         # The NSIS uninstaller copies itself to %TEMP% and continues from there, so the process
         # above returns early. Wait for the real work to finish.
         $deadline = (Get-Date).AddMinutes(15)
@@ -46,6 +48,15 @@ try {
     }
     if (Test-Path -LiteralPath $PyCharmDir) {
         Remove-Item -LiteralPath $PyCharmDir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    # Stop here if PyCharm is still installed. Removing the firewall rule and Active Setup key
+    # below would make Detect.ps1 report the app as gone, and Intune would record a failed
+    # uninstall as a success.
+    $remaining = @('bin\pycharm64.exe', 'product-info.json') |
+        Where-Object { Test-Path -LiteralPath (Join-Path $PyCharmDir $_) }
+    if ($remaining) {
+        throw "PyCharm is still installed; found $($remaining -join ', ') in '$PyCharmDir'"
     }
 
     # --- Firewall rule and per-user defaults hook ---------------------------------------------
