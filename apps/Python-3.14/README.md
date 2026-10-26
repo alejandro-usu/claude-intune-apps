@@ -53,7 +53,16 @@ GitHub Actions also builds it whenever a push changes this folder, and publishes
 | Value | `3.14.7` |
 | Associated with a 32-bit app on 64-bit clients | No |
 
-The installer writes this key for all-users installs (PEP 514).
+The installer writes this key for all-users installs (PEP 514). It's in the 64-bit registry,
+because the installer's registration component is flagged 64-bit, so the 32-bit setting must
+be **No**.
+
+### Assignments
+
+Apps that depend on Python, such as PyCharm, install it automatically on the devices they
+target, so Python doesn't strictly need its own assignment. Give it a **Required** assignment
+anyway when it supersedes an older Python (below), so supersedence clearly applies and its
+status shows on its own.
 
 ### What the install options do
 
@@ -91,6 +100,41 @@ by another app ("A depends on B, C supersedes B" in Microsoft's
 Moving to a new minor version (3.15) is different, because the folder changes: add a new
 Python app, point PyCharm's dependency and default interpreter at it, and supersede the old
 Python app only after nothing depends on it.
+
+## Replacing an older Python
+
+Each minor version installs side by side in its own folder (`Python313`, `Python314`). If an
+older Python was deployed through Intune:
+
+1. Check the older app's **Relationship viewer**. If another app depends on it, move that app
+   to this one first. Superseding an app that something depends on is a conflict.
+2. In this app, go to **Supersedence → Add**, pick the older Python app, and set **Uninstall
+   previous version** to **Yes**.
+3. Assign this app (**Required**) to the same groups, and remove the older app's assignments,
+   or Intune reinstalls it.
+
+Intune then removes the older Python and installs this one, only on devices that had it. The
+uninstaller also removes the old version's PATH entries.
+
+Watch out for:
+- **Virtual environments:** a venv built on the old Python breaks when it's removed, and has
+  to be recreated. On devices with persistent user profiles, do this at a term break. On
+  devices without persistent profiles (testing centers, kiosks) there's nothing to lose, so
+  any time is fine.
+- **Exams:** on shared devices, avoid having the swap run mid-session.
+- **Pre-installed packages:** anything installed into the old Python machine-wide goes with it.
+
+Afterwards, on a device: `py --list` should show only 3.14, and `python --version` should
+report 3.14.7.
+
+## Troubleshooting
+
+| Symptom | Check |
+|---|---|
+| Install shows as failed | Open `Python-3.14.7-Install.log`. If it ends with `Exit code: 0x0` and `Apply complete, result: 0x0`, Python installed and the **detection rule** is wrong, most often a blank Value name. Fix the rule and sync; no reinstall needed. |
+| Is Python registered? | `reg query "HKLM\SOFTWARE\Python\PythonCore\3.14" /v Version` should print `3.14.7` |
+| A component failed | The installer writes one log per component next to the main log (`Python-3.14.7-Install_000_core_AllUsers.log` and so on). Find the one with a non-zero result. |
+| `python` runs the wrong version | An older Python earlier in PATH. Remove the older version (above) or fix PATH. `py --list` shows what's installed. |
 
 ## Future: Python 3.16 and the install manager
 

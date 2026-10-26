@@ -4,7 +4,8 @@ One or two sentences on what this installs and anything it configures.
 
 <!-- For an app without scripts: set the install and uninstall commands to the installer's own
 command line, use a built-in detection rule instead of Detect.ps1, and delete source/ and
-Detect.ps1. See apps/Python-3.14/README.md. -->
+Detect.ps1. See apps/Python-3.14/README.md.
+Read "Intune conventions" in the repo README before filling this in. -->
 
 | Component | Source | SHA-256 |
 |---|---|---|
@@ -36,10 +37,12 @@ python3 tools/build.py <APP-FOLDER>
 | Minimum OS | |
 | Disk space required | |
 | Detection rules | Custom script: [`Detect.ps1`](Detect.ps1), "Run script as 32-bit process" = **No** |
+| Dependencies | None, or the app and **Automatically install** = Yes |
+| Supersedence | None, or the app it replaces and **Uninstall previous version** = Yes / No |
 
-Intune doesn't expand environment variables such as `%SystemRoot%` in the uninstall command,
-so both commands use plain `powershell.exe`. Intune starts that as 32-bit PowerShell; the
-scripts relaunch themselves as 64-bit.
+Both commands use plain `powershell.exe`, because Intune doesn't expand environment variables
+in the uninstall command. Intune starts it as 32-bit PowerShell, and the scripts relaunch
+themselves as 64-bit. See [Intune conventions](../../README.md#intune-conventions).
 
 Logs: `C:\ProgramData\Microsoft\IntuneManagementExtension\Logs\<APP-FOLDER>-*.log`
 
@@ -49,4 +52,14 @@ Logs: `C:\ProgramData\Microsoft\IntuneManagementExtension\Logs\<APP-FOLDER>-*.lo
 
 ## Uninstall
 
-...
+... (What it removes and what it leaves. The script must confirm the app is gone before
+removing anything `Detect.ps1` checks.)
+
+## Pilot test
+
+Tested on <device>, <date>:
+- [ ] Install from Intune succeeds, and the transcript's `Host Application` is the `Sysnative` PowerShell
+- [ ] Detection reports installed afterwards
+- [ ] A test user signs in and sees what they should (no prompts, settings applied)
+- [ ] Uninstall from Intune succeeds, and detection reports not installed
+- [ ] Reinstall works
