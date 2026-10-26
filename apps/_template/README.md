@@ -27,8 +27,8 @@ python3 tools/build.py <APP-FOLDER>
 | Package file | `Install.intunewin` |
 | Name | <APP NAME> <VERSION> |
 | Publisher | <Vendor> |
-| Install command | `%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Install.ps1` |
-| Uninstall command | `%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Uninstall.ps1` |
+| Install command | `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Install.ps1` |
+| Uninstall command | `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Uninstall.ps1` |
 | Install behavior | System |
 | Device restart behavior | Determine behavior based on return codes |
 | Return codes | defaults |
@@ -36,6 +36,10 @@ python3 tools/build.py <APP-FOLDER>
 | Minimum OS | |
 | Disk space required | |
 | Detection rules | Custom script: [`Detect.ps1`](Detect.ps1), "Run script as 32-bit process" = **No** |
+
+Intune doesn't expand environment variables such as `%SystemRoot%` in the uninstall command,
+so both commands use plain `powershell.exe`. Intune starts that as 32-bit PowerShell; the
+scripts relaunch themselves as 64-bit.
 
 Logs: `C:\ProgramData\Microsoft\IntuneManagementExtension\Logs\<APP-FOLDER>-*.log`
 

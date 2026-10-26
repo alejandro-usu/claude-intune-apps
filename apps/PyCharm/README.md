@@ -21,7 +21,7 @@ python3 tools/build.py PyCharm
 ```
 
 GitHub Actions also builds it whenever a push changes this folder, and publishes it as the
-**PyCharm-2026.2.3** artifact. See the [repo README](../../README.md).
+**PyCharm-2026.2.3-2** artifact (the `-2` is the package revision). See the [repo README](../../README.md).
 
 ## Intune app settings
 
@@ -31,8 +31,8 @@ GitHub Actions also builds it whenever a push changes this folder, and publishes
 | Package file | `Install.intunewin` |
 | Name | PyCharm 2026.2.3 |
 | Publisher | JetBrains |
-| Install command | `%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Install.ps1` |
-| Uninstall command | `%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Uninstall.ps1` |
+| Install command | `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Install.ps1` |
+| Uninstall command | `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Uninstall.ps1` |
 | Install behavior | System |
 | Device restart behavior | Determine behavior based on return codes |
 | Return codes | defaults |
@@ -41,6 +41,10 @@ GitHub Actions also builds it whenever a push changes this folder, and publishes
 | Disk space required | 4,000 MB |
 | Detection rules | Custom script: [`Detect.ps1`](Detect.ps1), "Run script as 32-bit process" = **No** |
 | Dependencies | **Python 3.14.7**, set to **Automatically install** |
+
+Intune doesn't expand environment variables such as `%SystemRoot%` in the uninstall command,
+so both commands use plain `powershell.exe`. Intune starts that as 32-bit PowerShell; the
+scripts relaunch themselves as 64-bit.
 
 Logs, in `C:\ProgramData\Microsoft\IntuneManagementExtension\Logs\`:
 - `PyCharm-2026.2.3-Install.log` and `PyCharm-2026.2.3-Uninstall.log` from the scripts
