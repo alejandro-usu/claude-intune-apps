@@ -26,7 +26,10 @@ python3 tools/build.py PyCharm/2026.2-Python3.15
 ```
 
 GitHub Actions also builds it whenever a push changes this folder, and publishes it as the
-**PyCharm-2026.2.3-3** artifact (the `-3` is the package revision). See the [repo README](../../../README.md).
+**PyCharm-2026.2.3-3_Python-3.15.2** artifact. `-3` is the package revision, and `Python-3.15.2` is
+the version of the Python app it depends on (`dependsOn` in `app.json`), which is PyCharm's
+default interpreter. A push that changes the Python app rebuilds this one too, so the name
+stays current. See the [repo README](../../../README.md).
 
 ## Intune app settings
 
@@ -201,8 +204,8 @@ A Python patch release (3.15.2 → 3.15.3) keeps the same folder, so nothing her
 This package was made from [PyCharm (Python 3.14)](../2026.2-Python3.14/) with that README's
 checklist. Compared with it, only these change: `$PythonExe`, `$PythonVersion` and `$SdkName`
 in `Set-PyCharmUserDefaults.ps1`; `$PythonExe` and `$ActiveSetupVersion` (`2026,2,3,3`) in
-`Install.ps1`; the version check in `Detect.ps1`; the revision in `app.json` (`2026.2.3-3`); and
-the Python version in comments and this README. The PyCharm installer, install folder,
+`Install.ps1`; the version check in `Detect.ps1`; the revision (`2026.2.3-3`) and `dependsOn`
+(`Python/3.15`) in `app.json`; and the Python version in comments and this README. The PyCharm installer, install folder,
 firewall rule and Active Setup key are the same.
 
 The Active Setup key name (`...PyCharm2026.2-Python3.14-Interpreter`) still says 3.14 on
