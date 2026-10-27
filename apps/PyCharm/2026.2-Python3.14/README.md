@@ -26,7 +26,10 @@ python3 tools/build.py PyCharm/2026.2-Python3.14
 ```
 
 GitHub Actions also builds it whenever a push changes this folder, and publishes it as the
-**PyCharm-2026.2.3-2** artifact (the `-2` is the package revision). See the [repo README](../../../README.md).
+**PyCharm-2026.2.3-2_Python-3.14.7** artifact. `-2` is the package revision, and `Python-3.14.7` is
+the version of the Python app it depends on (`dependsOn` in `app.json`), which is PyCharm's
+default interpreter. A push that changes the Python app rebuilds this one too, so the name
+stays current. See the [repo README](../../../README.md).
 
 ## Intune app settings
 
@@ -215,8 +218,9 @@ as it is for devices that keep Python 3.14.
    per-user script again for users who already ran it, so they get the new default.
 4. `Detect.ps1`: change the Active Setup version check to the same value. Devices then fail
    detection and reinstall, which picks up the new script.
-5. Bump the revision in `app.json` (`2026.2.3-3`), and update the Python version mentioned in
-   this README and the scripts' comments.
+5. In `app.json`, bump the revision (`2026.2.3-3`) and change `dependsOn` to `Python/3.15`
+   (the CI artifact name follows it). Update the Python version mentioned in this README and
+   the scripts' comments.
 
 Leave the Active Setup key name (`...PyCharm2026.2-Python3.14-Interpreter`) as it is. It's
 only an ID; renaming it would leave the old key behind on devices.

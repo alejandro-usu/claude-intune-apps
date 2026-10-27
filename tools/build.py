@@ -12,6 +12,9 @@ Each app folder has an app.json manifest:
       "version": "1.2.3",
       "setupFile": "Install.ps1",          file Intune runs: a script in source/, or one of
                                             the downloads when its command line is enough
+      "dependsOn": "Python/3.15",          optional: the app this one depends on in Intune,
+                                            named like any other app. Its product and version
+                                            are added to the CI artifact name.
       "downloads": [                        installers to fetch into the package
         {"url": "https://...", "sha256": "...", "file": "optional-name.exe"}
       ]
@@ -26,7 +29,7 @@ For each app, this script:
 Usage:
     python3 tools/build.py Python/3.14         build one app (its path under apps/)
     python3 tools/build.py --all               build every app
-    python3 tools/build.py --list              list apps and versions
+    python3 tools/build.py --list              list apps, versions and CI artifact names
     python3 tools/build.py --check             validate every manifest, download nothing
 """
 import argparse
@@ -82,6 +85,10 @@ def load_manifest(app):
         if name in names or os.path.exists(os.path.join(app_dir, "source", name)):
             errors.append(f"downloads[{i}] file name '{name}' clashes with another file")
         names.add(name)
+    if "dependsOn" in manifest:
+        dep = manifest["dependsOn"]
+        if not isinstance(dep, str) or dep == app or dep not in app_names():
+            errors.append(f'"dependsOn" must name another app ({", ".join(app_names())})')
     setup = manifest.get("setupFile")
     if isinstance(setup, str) and setup not in names and not os.path.isfile(os.path.join(app_dir, "source", setup)):
         errors.append(f'setupFile "{setup}" is neither in source/ nor one of the downloads')
@@ -90,6 +97,16 @@ def load_manifest(app):
     if errors:
         sys.exit(f"{app}/app.json:\n  " + "\n  ".join(errors))
     return manifest
+
+
+def artifact_name(app, manifest):
+    """CI artifact name: <Product>-<version>, plus _<Product>-<version> of the app it depends on,
+    for example "PyCharm-2026.2.3-3_Python-3.15.2". Artifact names can't contain "/"."""
+    name = f"{app.split('/')[0]}-{manifest['version']}"
+    dep = manifest.get("dependsOn")
+    if dep:
+        name += f"_{dep.split('/')[0]}-{load_manifest(dep)['version']}"
+    return name
 
 
 def download_name(dl):
@@ -170,7 +187,7 @@ def main():
     if args.list or args.check:
         for app in app_names():
             manifest = load_manifest(app)
-            print(f"{app}\t{manifest['version']}\t{manifest['name']}")
+            print(f"{app}\t{manifest['version']}\t{artifact_name(app, manifest)}\t{manifest['name']}")
         return
     apps = app_names() if args.all else args.apps
     if not apps:

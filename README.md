@@ -73,6 +73,8 @@ Then:
    - **`version`:** used in the CI artifact name.
    - **`setupFile`:** the file Intune runs. For an app without scripts, that's the installer
      (one of the downloads). With scripts, it's normally `Install.ps1`.
+   - **`dependsOn`** (optional): the app this one depends on in Intune, by its name here, for
+     example `"Python/3.15"`. Its product and version are added to the CI artifact name.
 3. With scripts, write `source/Install.ps1`, `source/Uninstall.ps1` and `Detect.ps1`. The
    template already handles the 64-bit relaunch, logging to the Intune logs folder, and exit
    codes. Detection should check for the exact version this package installs.
@@ -205,13 +207,16 @@ Microsoft's tool on Windows instead, put the downloaded installers in a folder w
 
 On every push that touches `apps/`, `tools/` or the workflow, `build.yml`:
 1. checks every `app.json` and every `.ps1` for syntax errors
-2. builds the apps whose folders changed, or all of them when `tools/` or the workflow changed
+2. builds the apps whose folders changed, plus the apps that depend on them (`dependsOn`), or
+   all of them when `tools/` or the workflow changed
 
 To build on demand, open **Actions → Build Intune packages → Run workflow** and enter an app
 name (`Python/3.14`) or `all`. The button only appears once the workflow is on the default branch.
 
-Each package becomes an artifact named `<Product>-<version>`, for example `Python-3.14.7` or
-`PyCharm-2026.2.3-2`:
+Each package becomes an artifact named `<Product>-<version>`, followed by
+`_<Product>-<version>` of the app it depends on, if any. For example `Python-3.15.2`, or
+`PyCharm-2026.2.3-3_Python-3.15.2` for PyCharm with Python 3.15.2 as its default
+interpreter. `python3 tools/build.py --list` shows each app's artifact name.
 - download it from the run page
 - GitHub wraps it in a .zip, so extract it before uploading to Intune
 - the run summary lists each package's SHA-256

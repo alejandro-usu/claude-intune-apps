@@ -84,7 +84,11 @@ jobs:
                       apps = known
                   else:
                       # A changed file belongs to the app whose folder contains it.
-                      apps = sorted(a for a in known if any(p.startswith(f"apps/{a}/") for p in changed))
+                      apps = {a for a in known if any(p.startswith(f"apps/{a}/") for p in changed)}
+                      # Rebuild apps that depend on a changed app, since their artifact name
+                      # includes its version.
+                      apps |= {a for a in known if build.load_manifest(a).get("dependsOn") in apps}
+                      apps = sorted(apps)
           print("Apps to build:", apps or "none")
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
               f.write(f"apps={json.dumps(apps)}\n")
@@ -117,9 +121,8 @@ jobs:
         run: |
           version=$(python -c "import json; print(json.load(open('apps/${{ matrix.app }}/app.json'))['version'])")
           pkg=$(ls out/${{ matrix.app }}/*.intunewin)
-          # Artifact names can't contain "/": use the product (first folder) and the version.
-          app='${{ matrix.app }}'
-          artifact="${app%%/*}-$version"
+          # <Product>-<version>, plus _<Product>-<version> of the app it depends on (tools/build.py).
+          artifact=$(python -c "import sys; sys.path.insert(0, 'tools'); import build; app = '${{ matrix.app }}'; print(build.artifact_name(app, build.load_manifest(app)))")
           echo "artifact=$artifact" >> "$GITHUB_OUTPUT"
           echo "package=$pkg" >> "$GITHUB_OUTPUT"
           {
