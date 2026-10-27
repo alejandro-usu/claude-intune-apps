@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Build Intune Win32 packages for the apps in apps/.
 
+Apps live in apps/<Product>/<version series>/, for example apps/Python/3.14, and are named by
+that path ("Python/3.14"). Any folder under apps/ that holds an app.json is an app; folders
+starting with "_" or "." (such as apps/_template) are skipped.
+
 Each app folder has an app.json manifest:
 
     {
@@ -20,7 +24,7 @@ For each app, this script:
   3. writes out/<app>/<setupFile stem>.intunewin and verifies it
 
 Usage:
-    python3 tools/build.py PyCharm             build one app (folder name under apps/)
+    python3 tools/build.py Python/3.14         build one app (its path under apps/)
     python3 tools/build.py --all               build every app
     python3 tools/build.py --list              list apps and versions
     python3 tools/build.py --check             validate every manifest, download nothing
@@ -45,8 +49,14 @@ import intunewin  # noqa: E402
 
 
 def app_names():
-    return sorted(d for d in os.listdir(APPS)
-                  if not d.startswith(("_", ".")) and os.path.isfile(os.path.join(APPS, d, "app.json")))
+    """Every folder under apps/ with an app.json, as a path relative to apps/ ("Python/3.14")."""
+    names = []
+    for root, dirs, files in os.walk(APPS):
+        dirs[:] = sorted(d for d in dirs if not d.startswith(("_", ".")))
+        if "app.json" in files and root != APPS:
+            names.append(os.path.relpath(root, APPS).replace(os.sep, "/"))
+            dirs[:] = []  # an app's own subfolders (source/) are not apps
+    return sorted(names)
 
 
 def load_manifest(app):
@@ -125,7 +135,7 @@ def link_or_copy(src, dst):
 
 def build(app):
     if app not in app_names():
-        sys.exit(f"Unknown app '{app}'. Pass a folder name under apps/: {', '.join(app_names())}")
+        sys.exit(f"Unknown app '{app}'. Pass its path under apps/: {', '.join(app_names())}")
     manifest = load_manifest(app)
     print(f"== {app}: {manifest['name']} ({manifest['version']})")
     app_out = os.path.join(OUT, app)

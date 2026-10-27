@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       app:
-        description: App folder under apps/ (e.g. PyCharm), or "all"
+        description: App path under apps/ (e.g. Python/3.14 or PyCharm/2026.2), or "all"
         required: true
         default: all
 
@@ -83,7 +83,8 @@ jobs:
                   if any(p.startswith(("tools/", ".github/")) for p in changed):
                       apps = known
                   else:
-                      apps = sorted({p.split("/")[1] for p in changed if p.startswith("apps/")} & set(known))
+                      # A changed file belongs to the app whose folder contains it.
+                      apps = sorted(a for a in known if any(p.startswith(f"apps/{a}/") for p in changed))
           print("Apps to build:", apps or "none")
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
               f.write(f"apps={json.dumps(apps)}\n")
@@ -116,13 +117,16 @@ jobs:
         run: |
           version=$(python -c "import json; print(json.load(open('apps/${{ matrix.app }}/app.json'))['version'])")
           pkg=$(ls out/${{ matrix.app }}/*.intunewin)
-          echo "artifact=${{ matrix.app }}-$version" >> "$GITHUB_OUTPUT"
+          # Artifact names can't contain "/": use the product (first folder) and the version.
+          app='${{ matrix.app }}'
+          artifact="${app%%/*}-$version"
+          echo "artifact=$artifact" >> "$GITHUB_OUTPUT"
           echo "package=$pkg" >> "$GITHUB_OUTPUT"
           {
             echo "### ${{ matrix.app }} $version"
             echo "- Package: \`$(basename "$pkg")\`, $(stat -c %s "$pkg") bytes"
             echo "- SHA-256: \`$(sha256sum "$pkg" | cut -d' ' -f1)\`"
-            echo "- Download the **${{ matrix.app }}-$version** artifact below. GitHub delivers it inside a .zip; extract it before uploading to Intune."
+            echo "- Download the **$artifact** artifact below. GitHub delivers it inside a .zip; extract it before uploading to Intune."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v4

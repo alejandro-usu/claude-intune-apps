@@ -4,7 +4,8 @@ One or two sentences on what this installs and anything it configures.
 
 <!-- For an app without scripts: set the install and uninstall commands to the installer's own
 command line, use a built-in detection rule instead of Detect.ps1, and delete source/ and
-Detect.ps1. See apps/Python-3.14/README.md.
+Detect.ps1. See apps/Python/3.14/README.md.
+Copy this folder to apps/<Product>/<Series>/; the relative links below assume that depth.
 Read "Intune conventions" in the repo README before filling this in. -->
 
 | Component | Source | SHA-256 |
@@ -16,8 +17,8 @@ Say where the hash was checked (the vendor's published checksum, a signed releas
 ## Build
 
 ```sh
-python3 tools/build.py <APP-FOLDER>
-# -> out/<APP-FOLDER>/Install.intunewin
+python3 tools/build.py <Product>/<Series>
+# -> out/<Product>/<Series>/Install.intunewin
 ```
 
 ## Intune app settings
@@ -42,7 +43,7 @@ python3 tools/build.py <APP-FOLDER>
 
 Both commands use plain `powershell.exe`, because Intune doesn't expand environment variables
 in the uninstall command. Intune starts it as 32-bit PowerShell, and the scripts relaunch
-themselves as 64-bit. See [Intune conventions](../../README.md#intune-conventions).
+themselves as 64-bit. See [Intune conventions](../../../README.md#intune-conventions).
 
 Logs: `C:\ProgramData\Microsoft\IntuneManagementExtension\Logs\<APP-FOLDER>-*.log`
 

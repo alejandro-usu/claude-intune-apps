@@ -6,24 +6,25 @@ the `.intunewin`. Installers and packages are never committed.
 
 ## Apps
 
-| Folder | Installs |
+| App | Installs |
 |---|---|
-| [Python-3.14](apps/Python-3.14/) | Python 3.14.7, all users, on PATH, with the `py` launcher |
-| [PyCharm](apps/PyCharm/) | PyCharm 2026.2.3, with Python 3.14 as the default interpreter and first-run prompts pre-answered. Depends on Python-3.14. |
+| [Python/3.14](apps/Python/3.14/) | Python 3.14.7, all users, on PATH, with the `py` launcher |
+| [PyCharm/2026.2](apps/PyCharm/2026.2/) | PyCharm 2026.2.3, with Python 3.14 as the default interpreter and first-run prompts pre-answered. Depends on Python/3.14. |
 
 ## Layout
 
 ```
 apps/
-  <App>/
-    app.json          name, version, setup file, installer URLs + SHA-256
-    README.md         Intune app settings and what the install does
-    Detect.ps1        custom detection script, if the app needs one (uploaded to Intune
+  <Product>/          for example Python, PyCharm
+    <Series>/         one folder per version series, for example 3.14, 2026.2
+      app.json        name, version, setup file, installer URLs + SHA-256
+      README.md       Intune app settings and what the install does
+      Detect.ps1      custom detection script, if the app needs one (uploaded to Intune
                       separately, not packaged)
-    source/           scripts and config packaged with the installers, if the app needs them
-      Install.ps1
-      Uninstall.ps1
-      ...
+      source/         scripts and config packaged with the installers, if the app needs them
+        Install.ps1
+        Uninstall.ps1
+        ...
   _template/          starting point for a new app (never built)
 tools/
   build.py            builds one or all apps
@@ -32,8 +33,15 @@ tools/
   build.yml           checks every app and builds the ones a push changed
 ```
 
+An app is named by its path under `apps/`, such as `Python/3.14`. That's the name `build.py`
+and the CI workflow use.
+
+- **Patch releases** (3.14.7 → 3.14.8, 2026.2.3 → 2026.2.4) update their series folder in place.
+- **A new series** (Python 3.15, PyCharm 2026.3) gets a new folder next to the old one, usually
+  a copy of it. Delete the old folder once that version is retired in Intune.
+
 Build output and the download cache are git-ignored:
-- `out/<App>/<setup file>.intunewin`, for example `out/PyCharm/Install.intunewin`
+- `out/<Product>/<Series>/<setup file>.intunewin`, for example `out/PyCharm/2026.2/Install.intunewin`
 - `.cache/downloads/`
 
 ## Adding an app
@@ -42,16 +50,16 @@ First decide whether the app needs scripts:
 
 - **No scripts:** the installer's own command line does everything, and Intune can detect it
   with a built-in rule (MSI product code, file version or registry value). Most MSIs and
-  well-behaved EXE installers fit here. [Python-3.14](apps/Python-3.14/) is an example: just
+  well-behaved EXE installers fit here. [Python/3.14](apps/Python/3.14/) is an example: just
   `app.json` and a README.
 - **Scripts:** the install needs more than one step, such as extra configuration, firewall
-  rules or per-user settings, or detection needs logic. [PyCharm](apps/PyCharm/) is an example.
+  rules or per-user settings, or detection needs logic. [PyCharm/2026.2](apps/PyCharm/2026.2/) is an example.
 
 Then:
 
-1. Copy `apps/_template` to `apps/<App>`. Use a product name without the version, such as
-   `Zoom` or `VSCode`, so version bumps don't rename the folder. For an app without scripts,
-   delete `source/` and `Detect.ps1`.
+1. Copy `apps/_template` to `apps/<Product>/<Series>`, for example `apps/Zoom/6.5`. The product
+   folder has no version in its name; the series folder is the version line you'll update in
+   place. For an app without scripts, delete `source/` and `Detect.ps1`.
 2. Fill in `app.json`:
    - **`downloads`:** each installer's URL and SHA-256. Take the hash from the vendor's
      published checksum where there is one. Downloaded files land at the top of the package,
@@ -152,10 +160,18 @@ come from what went wrong, or nearly did, while piloting the apps in this repo.
 
 ### Updating an app in this repo
 
+**Patch release, same series folder:**
 1. Change the version, URLs and hashes in `app.json`.
 2. Change the version strings in the app's scripts, `Detect.ps1` and README.
 3. Push. CI checks and builds it.
-4. Update the Intune app as above.
+4. Update the existing Intune app in place, as above.
+
+**New series:**
+1. Copy the current series folder, for example `apps/Python/3.14` to `apps/Python/3.15`.
+2. Update the copy as for a patch release, plus anything tied to the series, such as install
+   folders and registry keys.
+3. Add it to Intune as a new app.
+4. Point dependent apps at it, then supersede the old one (see above and the app's README).
 
 ## Building
 
@@ -165,13 +181,14 @@ Needs Python 3.9+ and `pip install cryptography`.
 
 ```sh
 python3 tools/build.py --list              # apps and versions
-python3 tools/build.py PyCharm             # -> out/PyCharm/Install.intunewin
+python3 tools/build.py PyCharm/2026.2      # -> out/PyCharm/2026.2/Install.intunewin
 python3 tools/build.py --all
 python3 tools/build.py --check             # validate every app.json, no downloads
 ```
 
-`build.py` takes app folder names only (as listed by `--list`), not paths. Downloads are cached in
-`.cache/downloads/`, so rebuilding doesn't fetch them again. A hash mismatch stops the build.
+`build.py` takes app names as `--list` shows them (`Python/3.14`), not file system paths.
+Downloads are cached in `.cache/downloads/`, so rebuilding doesn't fetch them again. A hash
+mismatch stops the build.
 
 `tools/intunewin.py` writes the same format as Microsoft's Win32 Content Prep Tool. To use
 Microsoft's tool on Windows instead, put the downloaded installers in a folder with the app's
@@ -184,9 +201,10 @@ On every push that touches `apps/`, `tools/` or the workflow, `build.yml`:
 2. builds the apps whose folders changed, or all of them when `tools/` or the workflow changed
 
 To build on demand, open **Actions → Build Intune packages → Run workflow** and enter an app
-folder name or `all`. The button only appears once the workflow is on the default branch.
+name (`Python/3.14`) or `all`. The button only appears once the workflow is on the default branch.
 
-Each package becomes an artifact named `<App>-<version>`:
+Each package becomes an artifact named `<Product>-<version>`, for example `Python-3.14.7` or
+`PyCharm-2026.2.3-2`:
 - download it from the run page
 - GitHub wraps it in a .zip, so extract it before uploading to Intune
 - the run summary lists each package's SHA-256

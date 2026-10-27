@@ -2,7 +2,7 @@
 
 Installs 64-bit Python 3.14.7 for all users in `C:\Program Files\Python314`, adds it to the
 system PATH, and installs the `py` launcher. Other apps can depend on it, such as
-[PyCharm](../PyCharm/).
+[PyCharm](../../PyCharm/2026.2/).
 
 There are no scripts. Intune runs the Python installer directly, since its command-line options
 cover everything and its exit codes are the standard ones Intune already understands.
@@ -16,12 +16,12 @@ The hash matches the `sha256_sum` python.org publishes for this file.
 ## Build the package
 
 ```sh
-python3 tools/build.py Python-3.14
-# -> out/Python-3.14/python-3.14.7-amd64.intunewin
+python3 tools/build.py Python/3.14
+# -> out/Python/3.14/python-3.14.7-amd64.intunewin
 ```
 
 GitHub Actions also builds it whenever a push changes this folder, and publishes it as the
-**Python-3.14-3.14.7** artifact. See the [repo README](../../README.md).
+**Python-3.14.7** artifact. See the [repo README](../../../README.md).
 
 ## Intune app settings
 
@@ -97,9 +97,10 @@ by another app ("A depends on B, C supersedes B" in Microsoft's
 3. Devices then fail the new detection rule, and Intune installs the update over the old
    version. Apps that depend on Python keep their dependency.
 
-Moving to a new minor version (3.15) is different, because the folder changes: add a new
-Python app, point PyCharm's dependency and default interpreter at it, and supersede the old
-Python app only after nothing depends on it.
+Moving to a new minor version (3.15) is different, because the install folder changes. Copy
+this folder to `apps/Python/3.15`, add it to Intune as a new app, and follow
+[Moving PyCharm to a new Python version](../../PyCharm/2026.2/README.md#moving-pycharm-to-a-new-python-version).
+Supersede the old Python app only after nothing depends on it.
 
 ## Replacing an older Python
 
@@ -153,7 +154,7 @@ Checked September 2026 against [PEP 773](https://peps.python.org/pep-0773/) and 
 So this app can stay as it is through Python 3.15. For 3.16, it will likely become a scripted
 app: install the install manager, run `py install --target="C:\Program Files\Python316"` as
 SYSTEM, and add PATH and detection by hand. Keeping a fixed path means
-[PyCharm](../PyCharm/)'s default-interpreter setup keeps working. Check the docs again before
+[PyCharm](../../PyCharm/2026.2/)'s default-interpreter setup keeps working. Check the docs again before
 then, since machine-wide support may improve.
 
 ## Uninstall
