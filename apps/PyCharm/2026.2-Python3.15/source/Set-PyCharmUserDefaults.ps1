@@ -23,6 +23,15 @@
     This script adds (or reuses) a "Python SDK" entry for the given python.exe and points
     the other two files at it. Existing content in all three files is kept.
 
+    Welcome screen. PyCharm's welcome screen is a real project, <projects folder>\WelcomeScreen,
+    and "New Script" and "New Notebook" create their files in it. PyCharm creates it from the
+    new-project defaults the first time the welcome screen opens, and from then on it keeps
+    that interpreter (the project SDK in .idea\misc.xml), like any other project. So users who
+    already had it from an earlier package would still see the older Python there. If its
+    interpreter is another machine-wide Python next to this one (C:\Program Files\Python3xx,
+    installed by an earlier package), this script switches it to the new default. A venv or
+    any other interpreter the user chose is left alone.
+
     If PyCharm 2026.2 has never been started for this user, its first launch would normally
     import settings from an older PyCharm version. PyCharm skips any file that already exists
     in the new config folder during that import, so this script starts from the older version's
@@ -44,11 +53,17 @@
 .PARAMETER RegistryRoot
     The user's HKEY_CURRENT_USER, as a PowerShell registry path. Defaults to HKCU:. Pass an
     empty string to skip the User Agreement setting (its registry hive isn't available).
+
+.PARAMETER UserProfile
+    The user's profile folder, used to find the welcome screen project. Defaults to
+    $env:USERPROFILE when ConfigRoot is the current user's APPDATA, otherwise to the folder two
+    levels above ConfigRoot (C:\Users\<name> for C:\Users\<name>\AppData\Roaming).
 #>
 [CmdletBinding()]
 param(
     [string]$ConfigRoot = $env:APPDATA,
     [string]$RegistryRoot = 'HKCU:',
+    [string]$UserProfile = '',
     [string]$PythonExe = "$env:ProgramFiles\Python315\python.exe",
     [string]$PythonVersion = '3.15.2',
     [string]$SdkName = 'Python 3.15',
@@ -115,6 +130,20 @@ function Add-Element([System.Xml.XmlNode]$Parent, [string]$Name, [hashtable]$Att
     foreach ($key in $Attributes.Keys) { $element.SetAttribute($key, $Attributes[$key]) }
     [void]$Parent.AppendChild($element)
     return $element
+}
+
+function Get-OptionValue([string]$Path, [string]$Component, [string]$Option) {
+    # The value of <component name=...><option name=... value=...> in a PyCharm options file.
+    if (-not (Test-Path -LiteralPath $Path)) { return '' }
+    try {
+        $doc = New-Object System.Xml.XmlDocument
+        $doc.Load($Path)
+        $node = $doc.SelectSingleNode("/application/component[@name='$Component']/option[@name='$Option']/@value")
+        if ($node) { return $node.Value }
+    } catch {
+        Write-Warning "Could not read '$Path': $($_.Exception.Message)"
+    }
+    return ''
 }
 
 function Find-PreviousOptionsFile([string]$JetBrainsDir, [string]$FileName) {
@@ -197,11 +226,13 @@ $sdkTable = Get-Component $jdkTable 'ProjectJdkTable'
 $wantedHome = Get-NormalizedPath $PythonExe
 $existing = $null
 $namesInUse = @{}
+$pythonSdkHomes = @{}
 foreach ($jdk in $sdkTable.SelectNodes('jdk')) {
     $name = $jdk.SelectSingleNode('name/@value').Value
     $namesInUse[$name] = $true
     $type = $jdk.SelectSingleNode('type/@value').Value
     $homePath = $jdk.SelectSingleNode('homePath/@value').Value
+    if ($type -eq $SdkType) { $pythonSdkHomes[$name] = $homePath }
     if ($type -eq $SdkType -and (Get-NormalizedPath $homePath) -eq $wantedHome) { $existing = $jdk }
 }
 
@@ -257,5 +288,66 @@ $option = $pySdkSettings.SelectSingleNode("option[@name='PREFERRED_VIRTUALENV_BA
 if (-not $option) { $option = Add-Element $pySdkSettings 'option' @{ name = 'PREFERRED_VIRTUALENV_BASE_SDK' } }
 $option.SetAttribute('value', $PythonExe)
 Save-Xml $pySdk $pySdkPath
+
+# --- Welcome screen project: move it off an older machine-wide Python --------------------------
+# PyCharm puts it in its projects folder (ProjectUtil.getBaseDir): the "Default project
+# directory" setting, else the last folder a project was created in, else
+# %USERPROFILE%\PycharmProjects. Check each, since the last two can differ over time.
+if (-not $UserProfile) {
+    $UserProfile = if ($env:USERPROFILE -and $ConfigRoot -eq $env:APPDATA) { $env:USERPROFILE } else { Split-Path -Parent (Split-Path -Parent $ConfigRoot) }
+}
+# Machine-wide Pythons this repo's packages install: C:\Program Files\Python3xx\python.exe.
+$machinePythonPattern = '^' + [regex]::Escape((Get-NormalizedPath (Split-Path -Parent (Split-Path -Parent $PythonExe)))) + '\\python3\d+\\python\.exe$'
+
+$projectFolders = @(
+    (Get-OptionValue (Join-Path $optionsDir 'ide.general.local.xml') 'GeneralLocalSettings' 'defaultProjectDirectory'),
+    (Get-OptionValue (Join-Path $optionsDir 'recentProjects.xml') 'RecentProjectsManager' 'lastProjectLocation'),
+    (Join-Path $UserProfile 'PycharmProjects')
+) | Where-Object { $_ } | ForEach-Object { $_.Replace('$USER_HOME$', $UserProfile).Replace('/', '\') } | Sort-Object -Unique
+
+foreach ($projectFolder in $projectFolders) {
+    $welcomeDir = Join-Path $projectFolder 'WelcomeScreen'
+    $miscPath = Join-Path $welcomeDir '.idea\misc.xml'
+    if (-not (Test-Path -LiteralPath $miscPath)) { continue }
+    try {
+        $misc = New-Object System.Xml.XmlDocument
+        $misc.Load($miscPath)
+    } catch {
+        # A project file, so never replace it the way Read-XmlOrNew does.
+        Write-Warning "Could not read '$miscPath', leaving the welcome screen project alone: $($_.Exception.Message)"
+        continue
+    }
+    $projectRoot = $misc.DocumentElement.SelectSingleNode("component[@name='ProjectRootManager']")
+    if (-not $projectRoot) { continue }
+    $oldName = $projectRoot.GetAttribute('project-jdk-name')
+    $oldHome = if ($oldName) { $pythonSdkHomes[$oldName] } else { $null }
+    if ($oldName -eq $SdkName -or -not $oldHome -or (Get-NormalizedPath $oldHome) -eq $wantedHome -or
+        (Get-NormalizedPath $oldHome) -notmatch $machinePythonPattern) {
+        Write-Verbose "Welcome screen project in $welcomeDir uses '$oldName'; leaving it"
+        continue
+    }
+
+    $projectRoot.SetAttribute('project-jdk-name', $SdkName)
+    $projectRoot.SetAttribute('project-jdk-type', $SdkType)
+    Save-Xml $misc $miscPath
+    # A module can name its own SDK instead of inheriting the project's.
+    foreach ($iml in @(Get-ChildItem -LiteralPath $welcomeDir, (Join-Path $welcomeDir '.idea') -Filter '*.iml' -File -ErrorAction SilentlyContinue)) {
+        try {
+            $module = New-Object System.Xml.XmlDocument
+            $module.Load($iml.FullName)
+        } catch {
+            Write-Warning "Could not read '$($iml.FullName)': $($_.Exception.Message)"
+            continue
+        }
+        $entries = @($module.SelectNodes("//orderEntry[@type='jdk']") | Where-Object { $_.GetAttribute('jdkName') -eq $oldName })
+        if (-not $entries) { continue }
+        foreach ($entry in $entries) {
+            $entry.SetAttribute('jdkName', $SdkName)
+            $entry.SetAttribute('jdkType', $SdkType)
+        }
+        Save-Xml $module $iml.FullName
+    }
+    Write-Output "Welcome screen project in $welcomeDir switched from '$oldName' to '$SdkName'"
+}
 
 Write-Output "PyCharm defaults applied; default interpreter '$SdkName' ($PythonExe) in $optionsDir"

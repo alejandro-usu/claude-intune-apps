@@ -41,7 +41,7 @@ $DefaultsScript = Join-Path $DefaultsDir 'Set-PyCharmUserDefaults.ps1'
 # the version bump below reaches users who already ran that package's per-user script.
 $ActiveSetupKey = 'HKLM:\SOFTWARE\Microsoft\Active Setup\Installed Components\PyCharm2026.2-Python3.14-Interpreter'
 # Bump the last field to make Active Setup run again for users who already ran this version.
-$ActiveSetupVersion = '2026,2,3,3'
+$ActiveSetupVersion = '2026,2,3,4'
 
 # Inbound firewall rule for pycharm64.exe. Any rule for the program stops the Windows prompt.
 # Block keeps PyCharm unreachable from other machines; its own features (debugger, built-in web
@@ -100,14 +100,15 @@ try {
         if ($entry.PSChildName -notmatch '^S-1-(5-21|12-1)-') { continue }
         $profilePath = (Get-ItemProperty -Path $entry.PSPath -Name ProfileImagePath -ErrorAction SilentlyContinue).ProfileImagePath
         if (-not $profilePath) { continue }
-        $roaming = Join-Path ([Environment]::ExpandEnvironmentVariables($profilePath)) 'AppData\Roaming'
+        $profileDir = [Environment]::ExpandEnvironmentVariables($profilePath)
+        $roaming = Join-Path $profileDir 'AppData\Roaming'
         if (-not (Test-Path -LiteralPath $roaming)) { continue }
         # A signed-in user's registry hive is loaded under HKEY_USERS. For anyone else, Active
         # Setup sets the registry part at their next logon.
         $hive = "Registry::HKEY_USERS\$($entry.PSChildName)"
         $registryRoot = if (Test-Path -LiteralPath $hive) { $hive } else { '' }
         try {
-            & $DefaultsScript -ConfigRoot $roaming -RegistryRoot $registryRoot
+            & $DefaultsScript -ConfigRoot $roaming -RegistryRoot $registryRoot -UserProfile $profileDir
         } catch {
             Write-Warning "Could not configure PyCharm for '$profilePath': $($_.Exception.Message)"
         }

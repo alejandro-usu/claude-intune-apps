@@ -26,7 +26,7 @@ python3 tools/build.py PyCharm/2026.2-Python3.15
 ```
 
 GitHub Actions also builds it whenever a push changes this folder, and publishes it as the
-**PyCharm-2026.2.3-3_Python-3.15.2** artifact. `-3` is the package revision, and `Python-3.15.2` is
+**PyCharm-2026.2.3-4_Python-3.15.2** artifact. `-4` is the package revision, and `Python-3.15.2` is
 the version of the Python app it depends on (`dependsOn` in `app.json`), which is PyCharm's
 default interpreter. A push that changes the Python app rebuilds this one too, so the name
 stays current. See the [repo README](../../../README.md).
@@ -135,6 +135,27 @@ three files there:
 It edits these files in place and keeps the rest of their contents. Running it again changes
 nothing.
 
+**The welcome screen project.** PyCharm 2026.2's welcome screen is a real project named
+`WelcomeScreen`, and **New Script** and **New Notebook** save their files in it. The interpreter
+in the welcome screen's status bar is that project's interpreter. Confirmed in the 2026.2.3
+build (`PyCharmWelcomeScreenProjectProvider`, `miscProject.impl.LibKt`, `ProjectUtil.getBaseDir`):
+
+- It lives in PyCharm's projects folder: the **Default project directory** setting if set,
+  otherwise the folder the user last created a project in, otherwise
+  `%USERPROFILE%\PycharmProjects`. So it's normally `C:\Users\<name>\PycharmProjects\WelcomeScreen`.
+- PyCharm creates it the first time the welcome screen opens, from the new-project defaults
+  above. After that its interpreter (the project SDK in `.idea\misc.xml`) never changes on
+  its own, like any other project.
+
+So a user who opened PyCharm under an earlier package, such as PyCharm (Python 3.14), keeps
+that Python on the welcome screen even after this package sets 3.15 as the default. The script
+therefore also checks `WelcomeScreen\.idea\misc.xml` in each of those folders. If the project
+uses another machine-wide Python next to this one (`C:\Program Files\Python3xx\python.exe`, as
+installed by an earlier Python app), it switches the project, and any module in it that names
+that SDK, to Python 3.15. A venv or any other interpreter the user chose is left alone. The
+install log shows `Welcome screen project in ... switched from 'Python 3.14' to 'Python 3.15'`
+for each one it changes.
+
 **Keeping settings from older PyCharm versions.** The first time a user starts PyCharm 2026.2,
 it offers to import settings from their previous version (for example `PyCharm2026.1`). Two
 details of that import, confirmed in the 2026.2.3 build (`ConfigImportHelper`, `InitialConfigImportState`):
@@ -157,7 +178,7 @@ details of that import, confirmed in the 2026.2.3 build (`ConfigImportHelper`, `
 - With folder redirection of `AppData\Roaming`, the SYSTEM pass writes to the local profile
   path. Active Setup still writes to the user's real `%APPDATA%` at their next logon.
 - Existing projects keep whatever interpreter they already use. The default only applies to
-  new projects.
+  new projects, and to the welcome screen project as described above.
 
 ## Python packages for projects
 
@@ -203,10 +224,16 @@ A Python patch release (3.15.2 → 3.15.3) keeps the same folder, so nothing her
 
 This package was made from [PyCharm (Python 3.14)](../2026.2-Python3.14/) with that README's
 checklist. Compared with it, only these change: `$PythonExe`, `$PythonVersion` and `$SdkName`
-in `Set-PyCharmUserDefaults.ps1`; `$PythonExe` and `$ActiveSetupVersion` (`2026,2,3,3`) in
-`Install.ps1`; the version check in `Detect.ps1`; the revision (`2026.2.3-3`) and `dependsOn`
-(`Python/3.15`) in `app.json`; and the Python version in comments and this README. The PyCharm installer, install folder,
+in `Set-PyCharmUserDefaults.ps1`; `$PythonExe` and `$ActiveSetupVersion` in `Install.ps1`; the
+version check in `Detect.ps1`; the revision and `dependsOn` (`Python/3.15`) in `app.json`; and
+the Python version in comments and this README. The PyCharm installer, install folder,
 firewall rule and Active Setup key are the same.
+
+Revision `2026.2.3-4` (Active Setup version `2026,2,3,4`) also added the welcome screen
+project step to `Set-PyCharmUserDefaults.ps1`, and `-UserProfile` to its call in
+`Install.ps1`. The first pilot showed the welcome screen still on Python 3.14 after revision
+`-3`. Copy this folder, not the 3.14 one, when making the next variant, so the step carries
+over.
 
 The Active Setup key name (`...PyCharm2026.2-Python3.14-Interpreter`) still says 3.14 on
 purpose. It's only an ID; renaming it would leave the old key behind on devices, and keeping
@@ -242,7 +269,8 @@ in turn.
    (Python 3.14) app still depends on 3.14 is a conflict.
 
 **What users see:**
-- PyCharm gains a "Python 3.15" interpreter, which becomes the default for new projects.
+- PyCharm gains a "Python 3.15" interpreter, which becomes the default for new projects
+  and the interpreter of the welcome screen (New Script, New Notebook).
 - The "Python 3.14" entry stays in their list. After 3.14 is uninstalled, it shows as
   invalid, and users can remove it.
 - Existing projects keep their 3.14 virtual environments. Those break when 3.14 is removed
@@ -250,8 +278,9 @@ in turn.
 
 **Going back to PyCharm (Python 3.14)** on a device that had this app: the SYSTEM pass resets
 the default for existing profiles, but Active Setup won't run again at logon, because that
-package's `2026,2,3,2` is lower than this one's `2026,2,3,3`. Bump `$ActiveSetupVersion` in that
-package's `Install.ps1` and `Detect.ps1` above `2026,2,3,3` first.
+package's `2026,2,3,2` is lower than this one's `2026,2,3,4`. Bump `$ActiveSetupVersion` in that
+package's `Install.ps1` and `Detect.ps1` above `2026,2,3,4` first. Its script also has no
+welcome screen step, so the welcome screen stays on Python 3.15 until the user changes it.
 
 ## Replacing PyCharm Community Edition
 
@@ -294,4 +323,5 @@ Python 3.15 stays installed, and users' own PyCharm settings in `%APPDATA%` are 
 | Install log warns "Python not found" | The Python dependency is missing or not set to **Automatically install**. Users won't get the default interpreter; fix the dependency, then bump `$ActiveSetupVersion` and redeploy. |
 | User Agreement or Data Sharing dialog appears | Either the per-user script didn't run for this user, or a newer PyCharm build ships a newer agreement version (update `-AgreementVersion`). To rerun the script, sign out and back in. Active Setup runs it once per user per `$ActiveSetupVersion`. |
 | Windows Firewall prompt appears | The firewall rule is missing: check the install log, and `Get-NetFirewallRule -Group 'PyCharm 2026.2.3'`. |
+| Welcome screen status bar shows an older Python | The welcome screen project still uses it. Check the install log for the "Welcome screen project ... switched" line. If it's missing, the project uses an interpreter the script leaves alone (a venv, or a Python outside `C:\Program Files`), or PyCharm was open during install and saved over the change; signing out and back in reruns the script through Active Setup. Users can also pick the interpreter in the status bar themselves. |
 | PyCharm reinstalls at every check-in | Both PyCharm apps are assigned to the device. They install the same PyCharm, and each fails detection after the other runs. Remove one assignment. |
