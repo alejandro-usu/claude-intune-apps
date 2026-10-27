@@ -4,7 +4,7 @@ Installs PyCharm 2026.2.3 for all users and makes Python 3.14 the default interp
 PyCharm for every user on the device. Users don't see PyCharm's first-run User Agreement or
 Data Sharing dialogs, or the Windows Firewall prompt.
 
-Python comes from the separate [Python 3.14](../Python-3.14/) app. Set it up as a dependency
+Python comes from the separate [Python 3.14](../../Python/3.14/) app. Set it up as a dependency
 (below), so Intune installs Python first.
 
 | Component | Source | SHA-256 |
@@ -16,12 +16,12 @@ The hash matches JetBrains' published `pycharm-2026.2.3.exe.sha256`.
 ## Build the package
 
 ```sh
-python3 tools/build.py PyCharm
-# -> out/PyCharm/Install.intunewin
+python3 tools/build.py PyCharm/2026.2
+# -> out/PyCharm/2026.2/Install.intunewin
 ```
 
 GitHub Actions also builds it whenever a push changes this folder, and publishes it as the
-**PyCharm-2026.2.3-2** artifact (the `-2` is the package revision). See the [repo README](../../README.md).
+**PyCharm-2026.2.3-2** artifact (the `-2` is the package revision). See the [repo README](../../../README.md).
 
 ## Intune app settings
 
@@ -44,7 +44,7 @@ GitHub Actions also builds it whenever a push changes this folder, and publishes
 
 Both commands use plain `powershell.exe`, because Intune doesn't expand environment variables
 in the uninstall command. Intune starts it as 32-bit PowerShell, and the scripts relaunch
-themselves as 64-bit. See [Intune conventions](../../README.md#install-and-uninstall-commands).
+themselves as 64-bit. See [Intune conventions](../../../README.md#install-and-uninstall-commands).
 
 Logs, in `C:\ProgramData\Microsoft\IntuneManagementExtension\Logs\`:
 - `PyCharm-2026.2.3-Install.log` and `PyCharm-2026.2.3-Uninstall.log` from the scripts
@@ -52,7 +52,7 @@ Logs, in `C:\ProgramData\Microsoft\IntuneManagementExtension\Logs\`:
 
 ### Dependency on Python 3.14
 
-1. Add the [Python 3.14](../Python-3.14/) app to Intune first.
+1. Add the [Python 3.14](../../Python/3.14/) app to Intune first.
 2. In this app, go to **Dependencies → Add** and pick Python 3.14.7.
 3. Set **Automatically install** to **Yes**.
 
@@ -61,7 +61,7 @@ PyCharm leaves Python installed.
 
 If the Python app also supersedes an older Python (for example 3.13), give it its own
 **Required** assignment to the same groups as well. See the
-[Python README](../Python-3.14/README.md#replacing-an-older-python).
+[Python README](../../Python/3.14/README.md#replacing-an-older-python).
 
 If Python is missing when PyCharm installs, the install still succeeds and logs a warning,
 but users don't get Python 3.14 as their default interpreter. Active Setup only runs once per
@@ -69,8 +69,8 @@ user, so installing Python later doesn't fix that. You'd need to bump `$ActiveSe
 in `Install.ps1` and redeploy.
 
 A Python patch release (for example 3.14.8) installs to the same `C:\Program Files\Python314`,
-so only the Python app needs updating. Moving to Python 3.15 changes the path, so update both
-apps then.
+so only the Python app needs updating. A new minor version (3.15) changes the path; see
+[Moving PyCharm to a new Python version](#moving-pycharm-to-a-new-python-version).
 
 ## What the install does
 
@@ -181,6 +181,50 @@ Notes:
 - Projects created with PyCharm's **uv** option may not include pip. Use
   `uv pip install <packages>` there.
 
+## Moving PyCharm to a new Python version
+
+PyCharm doesn't install or pick Python itself. Three things decide which Python users get:
+
+1. **Intune installs it:** this app's dependency names one Python app.
+2. **This package sets the default:** `Set-PyCharmUserDefaults.ps1` registers one fixed
+   `python.exe` path in PyCharm and makes it the default for new projects and new venvs.
+3. **PyCharm finds the rest:** it lists any other Python it finds on PATH or in the registry,
+   so users can still pick those by hand. They just aren't the default.
+
+A Python patch release (3.14.7 → 3.14.8) keeps the same folder, so nothing here changes. For a
+new minor version, for example 3.15 in `C:\Program Files\Python315`:
+
+**In this repo** (keep the Python version consistent across all of these):
+1. Add `apps/Python/3.15` (a copy of `apps/Python/3.14`, updated). See the
+   [Python README](../../Python/3.14/README.md#updating-to-a-new-314-patch-release).
+2. `source/Set-PyCharmUserDefaults.ps1`: change the parameter defaults `$PythonExe`
+   (`Python315\python.exe`), `$PythonVersion` (`3.15.x`) and `$SdkName` (`Python 3.15`).
+3. `source/Install.ps1`: change `$PythonExe` (used for the "Python not found" warning), and
+   bump `$ActiveSetupVersion` (for example `2026,2,3,3`). The bump makes Active Setup run the
+   per-user script again for users who already ran it, so they get the new default.
+4. `Detect.ps1`: change the Active Setup version check to the same value. Devices then fail
+   detection and reinstall, which picks up the new script.
+5. Bump the revision in `app.json` (`2026.2.3-3`), and update the Python version mentioned in
+   this README and the scripts' comments.
+
+Leave the Active Setup key name (`...PyCharm2026.2-Python3.14-Interpreter`) as it is. It's
+only an ID; renaming it would leave the old key behind on devices.
+
+**In Intune, in this order:**
+1. Add the new Python app.
+2. In this PyCharm app, change the dependency from Python 3.14 to the new Python app
+   (**Automatically install** = Yes), and upload the new package and `Detect.ps1`.
+3. Once nothing depends on Python 3.14 any more, set the new Python app to supersede it
+   (**Uninstall previous version** = Yes), if you want 3.14 removed. Doing this while PyCharm
+   still depends on 3.14 is a conflict.
+
+**What users see:**
+- PyCharm gains a "Python 3.15" interpreter, which becomes the default for new projects.
+- The "Python 3.14" entry stays in their list. After 3.14 is uninstalled, it shows as
+  invalid, and users can remove it.
+- Existing projects keep their 3.14 virtual environments. Those break when 3.14 is removed
+  and have to be recreated.
+
 ## Replacing PyCharm Community Edition
 
 JetBrains merged PyCharm Community and Professional into one PyCharm; without a license it runs
@@ -193,7 +237,7 @@ the free features. To replace an Intune-deployed Community Edition:
    installer defaults to `C:\Program Files\JetBrains\PyCharm Community Edition <version>`, so
    a command pointing at `...\PyCharm <version>\bin\Uninstall.exe` fails.
 3. The old app's `Uninstall.exe /S` returns before it finishes (see
-   [Uninstall scripts](../../README.md#uninstall-scripts)). If Intune reports the old app's
+   [Uninstall scripts](../../../README.md#uninstall-scripts)). If Intune reports the old app's
    uninstall as failed, give it a wrapper script that waits, like this app's `Uninstall.ps1`.
 4. Assign this app where the old one was assigned, then remove the old app's assignments.
 
