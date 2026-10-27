@@ -1,11 +1,16 @@
-# PyCharm 2026.2.3 (Intune Win32 app)
+# PyCharm 2026.2.3, default Python 3.15 (Intune Win32 app)
 
-Installs PyCharm 2026.2.3 for all users and makes Python 3.14 the default interpreter in
+Installs PyCharm 2026.2.3 for all users and makes Python 3.15 the default interpreter in
 PyCharm for every user on the device. Users don't see PyCharm's first-run User Agreement or
 Data Sharing dialogs, or the Windows Firewall prompt.
 
-Python comes from the separate [Python 3.14](../../Python/3.14/) app. Set it up as a dependency
+Python comes from the separate [Python 3.15](../../Python/3.15/) app. Set it up as a dependency
 (below), so Intune installs Python first.
+
+This is one of two variants of the same PyCharm. The other,
+[PyCharm (Python 3.14)](../2026.2-Python3.14/), defaults to Python 3.14 instead. Only one of
+them can be on a device; see
+[Moving devices from PyCharm (Python 3.14) to this app](#moving-devices-from-pycharm-python-314-to-this-app).
 
 | Component | Source | SHA-256 |
 |---|---|---|
@@ -16,12 +21,12 @@ The hash matches JetBrains' published `pycharm-2026.2.3.exe.sha256`.
 ## Build the package
 
 ```sh
-python3 tools/build.py PyCharm/2026.2
-# -> out/PyCharm/2026.2/Install.intunewin
+python3 tools/build.py PyCharm/2026.2-Python3.15
+# -> out/PyCharm/2026.2-Python3.15/Install.intunewin
 ```
 
 GitHub Actions also builds it whenever a push changes this folder, and publishes it as the
-**PyCharm-2026.2.3-2** artifact (the `-2` is the package revision). See the [repo README](../../../README.md).
+**PyCharm-2026.2.3-3** artifact (the `-3` is the package revision). See the [repo README](../../../README.md).
 
 ## Intune app settings
 
@@ -29,7 +34,7 @@ GitHub Actions also builds it whenever a push changes this folder, and publishes
 |---|---|
 | App type | Windows app (Win32) |
 | Package file | `Install.intunewin` |
-| Name | PyCharm 2026.2.3 |
+| Name | PyCharm 2026.2.3 (Python 3.15) |
 | Publisher | JetBrains |
 | Install command | `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Install.ps1` |
 | Uninstall command | `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Uninstall.ps1` |
@@ -40,7 +45,7 @@ GitHub Actions also builds it whenever a push changes this folder, and publishes
 | Minimum OS | Windows 10 21H2 or later (PyCharm 2026.2 requires 64-bit Windows 10+) |
 | Disk space required | 4,000 MB |
 | Detection rules | Custom script: [`Detect.ps1`](Detect.ps1), "Run script as 32-bit process" = **No** |
-| Dependencies | **Python 3.14.7**, set to **Automatically install** |
+| Dependencies | **Python 3.15.2**, set to **Automatically install** |
 
 Both commands use plain `powershell.exe`, because Intune doesn't expand environment variables
 in the uninstall command. Intune starts it as 32-bit PowerShell, and the scripts relaunch
@@ -50,10 +55,10 @@ Logs, in `C:\ProgramData\Microsoft\IntuneManagementExtension\Logs\`:
 - `PyCharm-2026.2.3-Install.log` and `PyCharm-2026.2.3-Uninstall.log` from the scripts
 - `PyCharm-2026.2.3-Setup.log` from the PyCharm installer
 
-### Dependency on Python 3.14
+### Dependency on Python 3.15
 
-1. Add the [Python 3.14](../../Python/3.14/) app to Intune first.
-2. In this app, go to **Dependencies → Add** and pick Python 3.14.7.
+1. Add the [Python 3.15](../../Python/3.15/) app to Intune first.
+2. In this app, go to **Dependencies → Add** and pick Python 3.15.2.
 3. Set **Automatically install** to **Yes**.
 
 Intune then installs Python before PyCharm on every device PyCharm targets. Uninstalling
@@ -61,15 +66,15 @@ PyCharm leaves Python installed.
 
 If the Python app also supersedes an older Python (for example 3.13), give it its own
 **Required** assignment to the same groups as well. See the
-[Python README](../../Python/3.14/README.md#replacing-an-older-python).
+[Python README](../../Python/3.15/README.md#replacing-an-older-python).
 
 If Python is missing when PyCharm installs, the install still succeeds and logs a warning,
-but users don't get Python 3.14 as their default interpreter. Active Setup only runs once per
+but users don't get Python 3.15 as their default interpreter. Active Setup only runs once per
 user, so installing Python later doesn't fix that. You'd need to bump `$ActiveSetupVersion`
 in `Install.ps1` and redeploy.
 
-A Python patch release (for example 3.14.8) installs to the same `C:\Program Files\Python314`,
-so only the Python app needs updating. A new minor version (3.15) changes the path; see
+A Python patch release (for example 3.15.3) installs to the same `C:\Program Files\Python315`,
+so only the Python app needs updating. A new minor version (3.16) changes the path; see
 [Moving PyCharm to a new Python version](#moving-pycharm-to-a-new-python-version).
 
 ## What the install does
@@ -120,9 +125,9 @@ three files there:
 
 | File | What the script sets |
 |---|---|
-| `jdk.table.xml` | Adds a `Python SDK` entry named **Python 3.14** for `C:\Program Files\Python314\python.exe` (flavor `WinPythonSdkFlavor`). If an entry for that `python.exe` already exists, it reuses that entry. If another interpreter already uses the name, it picks `Python 3.14 (2)`. |
-| `project.default.xml` | Points the default project's `ProjectRootManager` at that SDK, so new projects and projects opened without an interpreter get Python 3.14.7. |
-| `pySdk.xml` | Sets `PySdkSettings.PREFERRED_VIRTUALENV_BASE_SDK` to that `python.exe`, so the New Project wizard picks Python 3.14.7 as the base interpreter when it creates a new venv. |
+| `jdk.table.xml` | Adds a `Python SDK` entry named **Python 3.15** for `C:\Program Files\Python315\python.exe` (flavor `WinPythonSdkFlavor`). If an entry for that `python.exe` already exists, it reuses that entry. If another interpreter already uses the name, it picks `Python 3.15 (2)`. |
+| `project.default.xml` | Points the default project's `ProjectRootManager` at that SDK, so new projects and projects opened without an interpreter get Python 3.15.2. |
+| `pySdk.xml` | Sets `PySdkSettings.PREFERRED_VIRTUALENV_BASE_SDK` to that `python.exe`, so the New Project wizard picks Python 3.15.2 as the base interpreter when it creates a new venv. |
 
 It edits these files in place and keeps the rest of their contents. Running it again changes
 nothing.
@@ -137,7 +142,7 @@ details of that import, confirmed in the 2026.2.3 build (`ConfigImportHelper`, `
 - During the import, PyCharm skips any file that already exists in the new folder. On its own,
   that would mean the user's older interpreter list and new-project defaults were not brought
   across. So when the 2026.2 folder hasn't been set up yet, the script starts from the newest
-  older `PyCharm*`/`PyCharmCE*` copy of each file and then adds Python 3.14.7. The user keeps
+  older `PyCharm*`/`PyCharmCE*` copy of each file and then adds Python 3.15.2. The user keeps
   their old interpreters and also gets the new default.
 
 **Caveats**
@@ -176,7 +181,7 @@ Other ways to do the same:
 
 Notes:
 - The device needs internet access to reach PyPI.
-- Running pip against the system Python (`C:\Program Files\Python314`) fails with a permission
+- Running pip against the system Python (`C:\Program Files\Python315`) fails with a permission
   error for standard users. That's expected; install into the project instead.
 - Projects created with PyCharm's **uv** option may not include pip. Use
   `uv pip install <packages>` there.
@@ -191,32 +196,47 @@ PyCharm doesn't install or pick Python itself. Three things decide which Python 
 3. **PyCharm finds the rest:** it lists any other Python it finds on PATH or in the registry,
    so users can still pick those by hand. They just aren't the default.
 
-A Python patch release (3.14.7 → 3.14.8) keeps the same folder, so nothing here changes. For a
-new minor version, for example 3.15 in `C:\Program Files\Python315`:
+A Python patch release (3.15.2 → 3.15.3) keeps the same folder, so nothing here changes.
 
-**In this repo** (keep the Python version consistent across all of these):
-1. Add `apps/Python/3.15` (a copy of `apps/Python/3.14`, updated). See the
-   [Python README](../../Python/3.14/README.md#updating-to-a-new-314-patch-release).
-2. `source/Set-PyCharmUserDefaults.ps1`: change the parameter defaults `$PythonExe`
-   (`Python315\python.exe`), `$PythonVersion` (`3.15.x`) and `$SdkName` (`Python 3.15`).
-3. `source/Install.ps1`: change `$PythonExe` (used for the "Python not found" warning), and
-   bump `$ActiveSetupVersion` (for example `2026,2,3,3`). The bump makes Active Setup run the
-   per-user script again for users who already ran it, so they get the new default.
-4. `Detect.ps1`: change the Active Setup version check to the same value. Devices then fail
-   detection and reinstall, which picks up the new script.
-5. Bump the revision in `app.json` (`2026.2.3-3`), and update the Python version mentioned in
-   this README and the scripts' comments.
+This package was made from [PyCharm (Python 3.14)](../2026.2-Python3.14/) with that README's
+checklist. Compared with it, only these change: `$PythonExe`, `$PythonVersion` and `$SdkName`
+in `Set-PyCharmUserDefaults.ps1`; `$PythonExe` and `$ActiveSetupVersion` (`2026,2,3,3`) in
+`Install.ps1`; the version check in `Detect.ps1`; the revision in `app.json` (`2026.2.3-3`); and
+the Python version in comments and this README. The PyCharm installer, install folder,
+firewall rule and Active Setup key are the same.
 
-Leave the Active Setup key name (`...PyCharm2026.2-Python3.14-Interpreter`) as it is. It's
-only an ID; renaming it would leave the old key behind on devices.
+The Active Setup key name (`...PyCharm2026.2-Python3.14-Interpreter`) still says 3.14 on
+purpose. It's only an ID; renaming it would leave the old key behind on devices, and keeping
+it is what lets the version bump make Active Setup run again for users who already got the
+3.14 default.
+
+For the next minor version, Python 3.16, the Python app itself has to change first, since
+python.org no longer ships the installer it uses (see the
+[Python 3.15 README](../../Python/3.15/README.md#python-316-and-the-install-manager)). Once
+there is a Python 3.16 app that installs to a fixed `C:\Program Files\Python316`, copy this
+folder to `apps/PyCharm/<series>-Python3.16` and repeat the same steps.
+
+### Moving devices from PyCharm (Python 3.14) to this app
+
+The two PyCharm apps install the same PyCharm into the same folder and share the firewall
+rule and Active Setup key. They differ only in the Active Setup version their detection
+expects, so a device can only have one of them. **Never assign both to the same device**:
+each would fail detection after the other installed, and Intune would keep reinstalling them
+in turn.
 
 **In Intune, in this order:**
-1. Add the new Python app.
-2. In this PyCharm app, change the dependency from Python 3.14 to the new Python app
-   (**Automatically install** = Yes), and upload the new package and `Detect.ps1`.
-3. Once nothing depends on Python 3.14 any more, set the new Python app to supersede it
-   (**Uninstall previous version** = Yes), if you want 3.14 removed. Doing this while PyCharm
-   still depends on 3.14 is a conflict.
+1. Add the [Python 3.15](../../Python/3.15/) app.
+2. Either update the existing PyCharm app in place: change its dependency from Python 3.14 to
+   Python 3.15 (**Automatically install** = Yes), upload this package and `Detect.ps1`, and
+   rename it to **PyCharm 2026.2.3 (Python 3.15)**. All its devices move at once.
+   Or, to move groups one at a time, add this as a new app with the Python 3.15 dependency,
+   assign it to a group, and remove that group from the PyCharm (Python 3.14) app's
+   assignments in the same change. It installs over the existing PyCharm, so no uninstall
+   is needed. Don't use supersedence with **Uninstall previous version** = Yes for this: it
+   would uninstall PyCharm only to install the same files again.
+3. Once nothing depends on Python 3.14 any more, set the Python 3.15 app to supersede it
+   (**Uninstall previous version** = Yes), if you want 3.14 removed. Doing this while a PyCharm
+   (Python 3.14) app still depends on 3.14 is a conflict.
 
 **What users see:**
 - PyCharm gains a "Python 3.15" interpreter, which becomes the default for new projects.
@@ -224,6 +244,11 @@ only an ID; renaming it would leave the old key behind on devices.
   invalid, and users can remove it.
 - Existing projects keep their 3.14 virtual environments. Those break when 3.14 is removed
   and have to be recreated.
+
+**Going back to PyCharm (Python 3.14)** on a device that had this app: the SYSTEM pass resets
+the default for existing profiles, but Active Setup won't run again at logon, because that
+package's `2026,2,3,2` is lower than this one's `2026,2,3,3`. Bump `$ActiveSetupVersion` in that
+package's `Install.ps1` and `Detect.ps1` above `2026,2,3,3` first.
 
 ## Replacing PyCharm Community Edition
 
@@ -255,7 +280,7 @@ per-user script reads `PyCharmCE*` config folders too, so interpreters carry ove
    PyCharm, so Intune reports the failure instead of a false success.
 5. Removes the firewall rule, the Active Setup entry and the defaults script.
 
-Python 3.14 stays installed, and users' own PyCharm settings in `%APPDATA%` are left alone.
+Python 3.15 stays installed, and users' own PyCharm settings in `%APPDATA%` are left alone.
 
 ## Troubleshooting
 
@@ -266,3 +291,4 @@ Python 3.14 stays installed, and users' own PyCharm settings in `%APPDATA%` are 
 | Install log warns "Python not found" | The Python dependency is missing or not set to **Automatically install**. Users won't get the default interpreter; fix the dependency, then bump `$ActiveSetupVersion` and redeploy. |
 | User Agreement or Data Sharing dialog appears | Either the per-user script didn't run for this user, or a newer PyCharm build ships a newer agreement version (update `-AgreementVersion`). To rerun the script, sign out and back in. Active Setup runs it once per user per `$ActiveSetupVersion`. |
 | Windows Firewall prompt appears | The firewall rule is missing: check the install log, and `Get-NetFirewallRule -Group 'PyCharm 2026.2.3'`. |
+| PyCharm reinstalls at every check-in | Both PyCharm apps are assigned to the device. They install the same PyCharm, and each fails detection after the other runs. Remove one assignment. |
