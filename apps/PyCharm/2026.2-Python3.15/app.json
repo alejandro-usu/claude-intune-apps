@@ -1,0 +1,11 @@
+{
+  "name": "PyCharm 2026.2.3 (Python 3.15)",
+  "version": "2026.2.3-3",
+  "setupFile": "Install.ps1",
+  "downloads": [
+    {
+      "url": "https://download.jetbrains.com/python/pycharm-2026.2.3.exe",
+      "sha256": "f47b0e48ce06a903b94245bbe8a312f2196205a12264ee47b0cf1595a1443362"
+    }
+  ]
+}

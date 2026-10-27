@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       app:
-        description: App path under apps/ (e.g. Python/3.14 or PyCharm/2026.2), or "all"
+        description: App path under apps/ (e.g. Python/3.15 or PyCharm/2026.2-Python3.15), or "all"
         required: true
         default: all
 

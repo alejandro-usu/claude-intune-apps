@@ -9,7 +9,9 @@ the `.intunewin`. Installers and packages are never committed.
 | App | Installs |
 |---|---|
 | [Python/3.14](apps/Python/3.14/) | Python 3.14.7, all users, on PATH, with the `py` launcher |
-| [PyCharm/2026.2](apps/PyCharm/2026.2/) | PyCharm 2026.2.3, with Python 3.14 as the default interpreter and first-run prompts pre-answered. Depends on Python/3.14. |
+| [Python/3.15](apps/Python/3.15/) | Python 3.15.2, all users, on PATH, with the `py` launcher |
+| [PyCharm/2026.2-Python3.14](apps/PyCharm/2026.2-Python3.14/) | PyCharm 2026.2.3, with Python 3.14 as the default interpreter and first-run prompts pre-answered. Depends on Python/3.14. |
+| [PyCharm/2026.2-Python3.15](apps/PyCharm/2026.2-Python3.15/) | The same PyCharm 2026.2.3, with Python 3.15 as the default interpreter. Depends on Python/3.15. Assign only one of the two PyCharm apps to a device. |
 
 ## Layout
 
@@ -17,6 +19,8 @@ the `.intunewin`. Installers and packages are never committed.
 apps/
   <Product>/          for example Python, PyCharm
     <Series>/         one folder per version series, for example 3.14, 2026.2
+                      (plus a suffix when one version comes in variants, for example
+                      2026.2-Python3.14 and 2026.2-Python3.15)
       app.json        name, version, setup file, installer URLs + SHA-256
       README.md       Intune app settings and what the install does
       Detect.ps1      custom detection script, if the app needs one (uploaded to Intune
@@ -39,9 +43,11 @@ and the CI workflow use.
 - **Patch releases** (3.14.7 → 3.14.8, 2026.2.3 → 2026.2.4) update their series folder in place.
 - **A new series** (Python 3.15, PyCharm 2026.3) gets a new folder next to the old one, usually
   a copy of it. Delete the old folder once that version is retired in Intune.
+- **Variants** of the same version get a suffix on the series folder that says how they
+  differ, such as `PyCharm/2026.2-Python3.15` (PyCharm 2026.2, defaulting to Python 3.15).
 
 Build output and the download cache are git-ignored:
-- `out/<Product>/<Series>/<setup file>.intunewin`, for example `out/PyCharm/2026.2/Install.intunewin`
+- `out/<Product>/<Series>/<setup file>.intunewin`, for example `out/PyCharm/2026.2-Python3.15/Install.intunewin`
 - `.cache/downloads/`
 
 ## Adding an app
@@ -53,7 +59,7 @@ First decide whether the app needs scripts:
   well-behaved EXE installers fit here. [Python/3.14](apps/Python/3.14/) is an example: just
   `app.json` and a README.
 - **Scripts:** the install needs more than one step, such as extra configuration, firewall
-  rules or per-user settings, or detection needs logic. [PyCharm/2026.2](apps/PyCharm/2026.2/) is an example.
+  rules or per-user settings, or detection needs logic. [PyCharm/2026.2-Python3.15](apps/PyCharm/2026.2-Python3.15/) is an example.
 
 Then:
 
@@ -181,7 +187,8 @@ Needs Python 3.9+ and `pip install cryptography`.
 
 ```sh
 python3 tools/build.py --list              # apps and versions
-python3 tools/build.py PyCharm/2026.2      # -> out/PyCharm/2026.2/Install.intunewin
+python3 tools/build.py PyCharm/2026.2-Python3.15
+                                           # -> out/PyCharm/2026.2-Python3.15/Install.intunewin
 python3 tools/build.py --all
 python3 tools/build.py --check             # validate every app.json, no downloads
 ```
