@@ -66,8 +66,96 @@ Then:
    detection rule.
 5. Build it locally (below), or push and let CI build it.
 
-To update an app, change the version and hashes in `app.json` and the version strings in its
-scripts, then push.
+Before assigning a new app widely, test it on one pilot device: install, detection, uninstall,
+and anything that should happen for users (sign in as a test user). The conventions below
+come from what went wrong, or nearly did, while piloting the apps in this repo.
+
+## Intune conventions
+
+### Install and uninstall commands
+
+- **No environment variables in the uninstall command.** Intune doesn't expand them there
+  ([Microsoft docs](https://learn.microsoft.com/en-us/intune/app-management/deployment/add-win32)),
+  so `%SystemRoot%`, `%ProgramData%` and the like must not appear. Use literal paths, for example
+  `/log "C:\ProgramData\Microsoft\IntuneManagementExtension\Logs\<App>-Uninstall.log"`. Keep
+  the install command the same way for consistency.
+- **Scripts:** use `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Install.ps1` (and
+  `.\Uninstall.ps1`). The Intune agent is 32-bit, so this starts 32-bit PowerShell.
+  `%SystemRoot%\System32\...\powershell.exe` doesn't help: Windows redirects a 32-bit
+  process's `System32` to `SysWOW64`. Instead, the scripts check for this and relaunch
+  themselves through `C:\Windows\Sysnative\...\powershell.exe`, the 64-bit PowerShell, so
+  Program Files, HKLM and firewall changes land in the right place. Don't put the `Sysnative`
+  path in the command itself; it only exists for 32-bit callers and would break if the agent
+  ever became 64-bit.
+- **To confirm the relaunch,** open the script's transcript in the Intune logs folder. The
+  `Host Application` line should show `C:\Windows\Sysnative\WindowsPowerShell\v1.0\powershell.exe`.
+- **Installers run directly** (no script) don't involve PowerShell. A 64-bit MSI writes to the
+  64-bit registry and Program Files even when a 32-bit process starts it. For an EXE installer,
+  confirm where it installed on the pilot device. The Python installer was checked and is fine.
+- **Logs** go to `C:\ProgramData\Microsoft\IntuneManagementExtension\Logs\`, so Intune's
+  "Collect diagnostics" picks them up.
+
+### Detection
+
+- **Check for the exact version the package installs,** so devices with an older version count
+  as not installed and get the update.
+- **Registry rules: always fill in Value name.** Intune doesn't require it, but if it's blank
+  the rule compares against the key's empty default value and never matches. The install
+  then shows as failed even though it worked.
+- **64-bit apps:** set "Associated with a 32-bit app on 64-bit clients" (rules) and "Run script as
+  32-bit process" (custom scripts) to **No**. Otherwise Intune looks under `WOW6432Node` and
+  the 32-bit Program Files.
+- **"Failed" right after a successful install usually means detection.** Check the installer's
+  own log for a success exit code, then
+  `C:\ProgramData\Microsoft\IntuneManagementExtension\Logs\AppWorkload.log` for what the
+  detection rule checked. Intune runs detection before every install attempt, so after fixing
+  the rule a sync is enough (Company Portal → Settings → Sync, or restart the Microsoft Intune
+  Management Extension service). Nothing needs reinstalling.
+
+### Uninstall scripts
+
+- **Verify the app is gone before removing anything detection checks** (firewall rules,
+  registry keys, marker files). Otherwise a failed uninstall makes detection report "not
+  installed", and Intune records success.
+- **NSIS uninstallers** (`Uninstall.exe /S`, used by JetBrains and many others) copy themselves
+  to `%TEMP%` and return before the uninstall finishes, with a meaningless exit code. Wait for
+  the app's files to disappear instead of trusting the exit code.
+
+### Dependencies
+
+- Set **Automatically install** to **Yes** on the dependency. Intune then installs it before
+  the app on every device the app targets. It doesn't need its own assignment just for that.
+- **Do give the dependency its own Required assignment when it supersedes something** (for
+  example Python 3.14 replacing 3.13). Supersedence acts on assigned apps; an explicit
+  assignment removes any doubt and shows its status separately.
+- Company Portal doesn't offer **Uninstall** for an app that has, or is, a dependency.
+
+### Supersedence and updates
+
+- **Never supersede an app that another app depends on.** Microsoft documents this as a
+  conflict ("A depends on B, C supersedes B. A will report a conflict state",
+  [supersedence docs](https://learn.microsoft.com/en-us/intune/app-management/deployment/configure-win32-supersedence)).
+  Update that app in place instead: edit it, upload the new `.intunewin`, and change the
+  commands and detection rule. Devices fail the new detection rule and get the update.
+- **Replacing a different product, or a version that installs side by side** (Python 3.13 →
+  3.14, PyCharm Community Edition → PyCharm): supersede with **Uninstall previous version =
+  Yes**. Intune runs the old app's uninstall command first, so check that command works,
+  including its folder path. Then remove the old app's Required assignments, or Intune
+  reinstalls it.
+- **A new version that installs over the old one:** **Uninstall previous version = No**.
+- **Package-only changes** (a fixed script, same product version): bump the revision in
+  `app.json` (`2026.2.3` → `2026.2.3-2`) so the CI artifact is distinguishable. Upload it to the
+  existing Intune app. Change detection only if devices must reinstall.
+- **Shared devices** (labs, testing centers): Intune installs and uninstalls in the background
+  whenever a device checks in, including during sessions. Roll out to a few devices first, or
+  outside opening hours.
+
+### Updating an app in this repo
+
+1. Change the version, URLs and hashes in `app.json`.
+2. Change the version strings in the app's scripts, `Detect.ps1` and README.
+3. Push. CI checks and builds it.
+4. Update the Intune app as above.
 
 ## Building
 
@@ -82,8 +170,8 @@ python3 tools/build.py --all
 python3 tools/build.py --check             # validate every app.json, no downloads
 ```
 
-Downloads are cached in `.cache/downloads/`, so rebuilding doesn't fetch them again. A hash
-mismatch stops the build.
+`build.py` takes app folder names only (as listed by `--list`), not paths. Downloads are cached in
+`.cache/downloads/`, so rebuilding doesn't fetch them again. A hash mismatch stops the build.
 
 `tools/intunewin.py` writes the same format as Microsoft's Win32 Content Prep Tool. To use
 Microsoft's tool on Windows instead, put the downloaded installers in a folder with the app's

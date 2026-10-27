@@ -42,9 +42,9 @@ GitHub Actions also builds it whenever a push changes this folder, and publishes
 | Detection rules | Custom script: [`Detect.ps1`](Detect.ps1), "Run script as 32-bit process" = **No** |
 | Dependencies | **Python 3.14.7**, set to **Automatically install** |
 
-Intune doesn't expand environment variables such as `%SystemRoot%` in the uninstall command,
-so both commands use plain `powershell.exe`. Intune starts that as 32-bit PowerShell; the
-scripts relaunch themselves as 64-bit.
+Both commands use plain `powershell.exe`, because Intune doesn't expand environment variables
+in the uninstall command. Intune starts it as 32-bit PowerShell, and the scripts relaunch
+themselves as 64-bit. See [Intune conventions](../../README.md#install-and-uninstall-commands).
 
 Logs, in `C:\ProgramData\Microsoft\IntuneManagementExtension\Logs\`:
 - `PyCharm-2026.2.3-Install.log` and `PyCharm-2026.2.3-Uninstall.log` from the scripts
@@ -56,8 +56,12 @@ Logs, in `C:\ProgramData\Microsoft\IntuneManagementExtension\Logs\`:
 2. In this app, go to **Dependencies → Add** and pick Python 3.14.7.
 3. Set **Automatically install** to **Yes**.
 
-Intune then installs Python before PyCharm, and assigning PyCharm is enough; you don't need
-to assign Python separately. Uninstalling PyCharm leaves Python installed.
+Intune then installs Python before PyCharm on every device PyCharm targets. Uninstalling
+PyCharm leaves Python installed.
+
+If the Python app also supersedes an older Python (for example 3.13), give it its own
+**Required** assignment to the same groups as well. See the
+[Python README](../Python-3.14/README.md#replacing-an-older-python).
 
 If Python is missing when PyCharm installs, the install still succeeds and logs a warning,
 but users don't get Python 3.14 as their default interpreter. Active Setup only runs once per
@@ -87,8 +91,8 @@ apps then.
 4. **Per-user defaults, now**: runs the same script as SYSTEM against every existing profile
    under `C:\Users`, so users who are already signed in don't need to log off.
 
-If the script is invoked on a 32-bit PowerShell (which the Intune Management Extension can
-do), it relaunches itself as 64-bit so `Program Files` and `HKLM` aren't redirected.
+Intune starts the script in 32-bit PowerShell. The script relaunches itself as 64-bit first,
+so `Program Files` and `HKLM` aren't redirected.
 
 ## First-run prompts
 
@@ -177,9 +181,44 @@ Notes:
 - Projects created with PyCharm's **uv** option may not include pip. Use
   `uv pip install <packages>` there.
 
+## Replacing PyCharm Community Edition
+
+JetBrains merged PyCharm Community and Professional into one PyCharm; without a license it runs
+the free features. To replace an Intune-deployed Community Edition:
+
+1. In this app, go to **Supersedence → Add**, pick the Community Edition app, and set
+   **Uninstall previous version** to **Yes**. The two install side by side in different
+   folders, so the old one must be uninstalled.
+2. Check the old app's uninstall command on a device that has it. Community Edition's
+   installer defaults to `C:\Program Files\JetBrains\PyCharm Community Edition <version>`, so
+   a command pointing at `...\PyCharm <version>\bin\Uninstall.exe` fails.
+3. The old app's `Uninstall.exe /S` returns before it finishes (see
+   [Uninstall scripts](../../README.md#uninstall-scripts)). If Intune reports the old app's
+   uninstall as failed, give it a wrapper script that waits, like this app's `Uninstall.ps1`.
+4. Assign this app where the old one was assigned, then remove the old app's assignments.
+
+On first launch, PyCharm 2026.2 offers to import the user's Community Edition settings. The
+per-user script reads `PyCharmCE*` config folders too, so interpreters carry over.
+
 ## Uninstall
 
-[`source/Uninstall.ps1`](source/Uninstall.ps1) stops PyCharm, runs `bin\Uninstall.exe /S` and
-waits for it to finish, then removes the firewall rule, the Active Setup entry and the defaults
-script. Python 3.14 stays installed, and users' own PyCharm settings in `%APPDATA%` are left
-alone.
+[`source/Uninstall.ps1`](source/Uninstall.ps1):
+1. Stops PyCharm and runs `bin\Uninstall.exe /S`.
+2. Waits for `bin\pycharm64.exe` to disappear, since the uninstaller returns early.
+3. Deletes what's left of the install folder.
+4. Checks that `bin\pycharm64.exe` and `product-info.json` are gone. If either remains, it stops
+   and exits 1, leaving the firewall rule and Active Setup entry in place. Detection still sees
+   PyCharm, so Intune reports the failure instead of a false success.
+5. Removes the firewall rule, the Active Setup entry and the defaults script.
+
+Python 3.14 stays installed, and users' own PyCharm settings in `%APPDATA%` are left alone.
+
+## Troubleshooting
+
+| Symptom | Check |
+|---|---|
+| Install or uninstall failed | `PyCharm-2026.2.3-Install.log` / `-Uninstall.log` in the Intune logs folder. The `Host Application` line should show `C:\Windows\Sysnative\...\powershell.exe` (the 64-bit relaunch). |
+| PyCharm installer itself failed | `PyCharm-2026.2.3-Setup.log` |
+| Install log warns "Python not found" | The Python dependency is missing or not set to **Automatically install**. Users won't get the default interpreter; fix the dependency, then bump `$ActiveSetupVersion` and redeploy. |
+| User Agreement or Data Sharing dialog appears | Either the per-user script didn't run for this user, or a newer PyCharm build ships a newer agreement version (update `-AgreementVersion`). To rerun the script, sign out and back in. Active Setup runs it once per user per `$ActiveSetupVersion`. |
+| Windows Firewall prompt appears | The firewall rule is missing: check the install log, and `Get-NetFirewallRule -Group 'PyCharm 2026.2.3'`. |
