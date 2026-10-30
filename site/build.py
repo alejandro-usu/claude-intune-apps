@@ -112,12 +112,23 @@ def bundle_contents(app, manifest):
     files = [setup]
     if os.path.isfile(os.path.join(build.APPS, app, "Detect.ps1")):
         files.append("Detect.ps1")
+    if os.path.isfile(os.path.join(build.APPS, app, "logo-intune.png")):
+        files.append("Intune logo.png")
     files.append("Intune settings.txt")
     return '<ul class="contents">' + "".join(f"<li>{html.escape(f)}</li>" for f in files) + "</ul>"
 
 
+def intune_logo_link(app):
+    """A download button for the app's logo-intune.png (white background, for Company Portal)."""
+    if not os.path.isfile(os.path.join(build.APPS, app, "logo-intune.png")):
+        return ""
+    return (f' <a class="button secondary" href="apps/{html.escape(app)}/logo-intune.png" '
+            f'download="{html.escape(slug(app))}-intune-logo.png">Intune logo</a>')
+
+
 def download_block(app, manifest, artifact, releases, artifacts):
     contents = bundle_contents(app, manifest)
+    logo_link = intune_logo_link(app)
     if manifest.get("release"):
         release = next((r for r in releases if r.get("tag_name") == artifact and not r.get("draft")), None)
         assets = (release or {}).get("assets", [])
@@ -127,7 +138,7 @@ def download_block(app, manifest, artifact, releases, artifacts):
             single = (f' <a class="button secondary" href="{html.escape(package["browser_download_url"])}">'
                       f'Just the .intunewin</a>') if package else ""
             return (f'<div class="bundle"><a class="button" href="{html.escape(bundle["browser_download_url"])}">'
-                    f'Download {html.escape(bundle["name"])}</a>{single}'
+                    f'Download {html.escape(bundle["name"])}</a>{single}{logo_link}'
                     f'<span class="size">{human_size(bundle["size"])}</span></div>{contents}'
                     f'<p class="note">From the <a href="{html.escape(release["html_url"])}">{html.escape(artifact)}</a> '
                     f'release. Extract the .zip, then upload the .intunewin to Intune as is.</p>')
@@ -151,7 +162,7 @@ def download_block(app, manifest, artifact, releases, artifacts):
         run_id = a["workflow_run"]["id"]
         expires = a.get("expires_at", "")[:10]
         return (f'<div class="bundle"><a class="button" href="{GITHUB}/actions/runs/{run_id}/artifacts/{a["id"]}">'
-                f'Download {html.escape(artifact)}.zip</a>'
+                f'Download {html.escape(artifact)}.zip</a>{logo_link}'
                 f'<span class="size">{human_size(a.get("size_in_bytes", 0))}</span></div>{contents}'
                 f'<p class="note">CI build from <a href="{GITHUB}/actions/runs/{run_id}">this run</a>. Needs a '
                 f'GitHub sign-in, and expires {html.escape(expires)}. Extract the .zip, then upload the '
@@ -196,6 +207,9 @@ def logo(app, out_dir):
     target = os.path.join(out_dir, "apps", app)
     os.makedirs(target, exist_ok=True)
     shutil.copyfile(path, os.path.join(target, "logo.png"))
+    intune = os.path.join(build.APPS, app, "logo-intune.png")
+    if os.path.isfile(intune):
+        shutil.copyfile(intune, os.path.join(target, "logo-intune.png"))
     return f'<img class="logo" src="apps/{html.escape(app)}/logo.png" alt="">'
 
 

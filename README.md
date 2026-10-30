@@ -28,7 +28,8 @@ apps/
                       2026.2-Python3.14 and 2026.2-Python3.15)
       app.json        name, version, setup file, installer URLs + SHA-256
       README.md       Intune app settings and what the install does
-      logo.png        optional: the app's logo for the website and Intune (see App logos)
+      logo.png        optional: the app's logo, transparent, for the website (see App logos)
+      logo-intune.png the same logo on white, for Intune and Company Portal
       Detect.ps1      custom detection script, if the app needs one (uploaded to Intune
                       separately, not packaged)
       source/         scripts and config packaged with the installers, if the app needs them
@@ -280,9 +281,17 @@ One-time setup: in the repo's **Settings → Pages**, set **Source** to **GitHub
 
 ## App logos
 
-An app can have a `logo.png` in its folder: a square PNG, 256×256, with a transparent
-background. The website shows it, and it's the file to pick for the Intune app's **Logo**
-(**App information → Select image**).
+An app with a logo has two files in its folder, both 256×256 PNGs:
+
+- **`logo.png`**, with a transparent background, for the website (which is dark).
+- **`logo-intune.png`**, the same logo on solid white with a little padding, for the Intune
+  app's **Logo** (**App information → Select image**). Company Portal draws a light gray tile
+  behind every app icon, and transparent pixels let it show through, so a transparent logo
+  sits in a gray square. On white it looks like the other apps (the R logo, for example, is on
+  white too). It's in each download bundle as `Intune logo.png`, and on the website as
+  **Intune logo**.
+
+`tools/build.py --check` fails if an app has one without the other.
 
 ### Finding a logo (instructions for an AI agent)
 
@@ -323,6 +332,13 @@ im.thumbnail((256, 256), Image.LANCZOS)
 logo = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
 logo.paste(im, ((256 - im.width) // 2, (256 - im.height) // 2), im)
 logo.save("apps/<Product>/<Series>/logo.png")
+
+# The Intune version: the same logo on opaque white, with padding.
+inner = logo.copy()
+inner.thumbnail((216, 216), Image.LANCZOS)
+tile = Image.new("RGB", (256, 256), (255, 255, 255))
+tile.paste(inner, ((256 - inner.width) // 2, (256 - inner.height) // 2), inner)
+tile.save("apps/<Product>/<Series>/logo-intune.png")
 ```
 
 Before committing, open the PNG and look at it:
