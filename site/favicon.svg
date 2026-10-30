@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- The site banner's striped green sun, on the site's dark background so it shows on light and
+       dark tab bars alike. Stripes are thick enough to survive a 16px tab icon. -->
+  <defs>
+    <linearGradient id="sun" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#d8ff6a"/>
+      <stop offset="0.45" stop-color="#39ff88"/>
+      <stop offset="1" stop-color="#00f0d0"/>
+    </linearGradient>
+    <mask id="stripes">
+      <rect width="64" height="64" fill="#fff"/>
+      <rect y="33" width="64" height="4" fill="#000"/>
+      <rect y="40.5" width="64" height="5" fill="#000"/>
+      <rect y="49" width="64" height="6" fill="#000"/>
+    </mask>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#03070a"/>
+  <circle cx="32" cy="32" r="25" fill="url(#sun)" mask="url(#stripes)"/>
+</svg>

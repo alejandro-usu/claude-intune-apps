@@ -266,8 +266,11 @@ def main():
         sections.append(section)
         kind = "Release" if manifest.get("release") else "CI build"
         image = logo(app, args.out)
-        index.append(f'<li><a class="{"with-logo" if image else ""}" href="#{slug(app)}">{image}<span class="name">{html.escape(manifest["name"])}</span>'
-                     f'<span class="tag">{kind}</span><span class="artifact">{html.escape(artifact)}</span></a></li>')
+        # A toggle: the page starts with no sections shown, and each card adds or removes its own.
+        index.append(f'<li><button type="button" class="card{" with-logo" if image else ""}" data-app="{slug(app)}" '
+                     f'aria-pressed="false" aria-controls="{slug(app)}">{image}'
+                     f'<span class="name">{html.escape(manifest["name"])}</span>'
+                     f'<span class="tag">{kind}</span><span class="artifact">{html.escape(artifact)}</span></button></li>')
 
     with open(os.path.join(SITE_DIR, "template.html"), encoding="utf-8") as f:
         page = f.read()
@@ -278,6 +281,9 @@ def main():
                 .replace("{{generated}}", generated))
     with open(os.path.join(args.out, "index.html"), "w", encoding="utf-8") as f:
         f.write(page)
+    # Tab and home-screen icons: the banner's sun (favicon.svg; the PNGs are renders of it).
+    for icon in ("favicon.svg", "favicon.png", "apple-touch-icon.png"):
+        shutil.copyfile(os.path.join(SITE_DIR, icon), os.path.join(args.out, icon))
     # Serve files as they are, without Jekyll.
     open(os.path.join(args.out, ".nojekyll"), "w").close()
     print(f"Wrote {args.out} ({len(sections)} apps)")
