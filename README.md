@@ -246,8 +246,9 @@ interpreter. `python3 tools/build.py --list` shows each app's artifact name.
 Apps with `"release": true` are also published, on `main`, as a GitHub Release with the same
 name (for example `Python-3.15.2`), holding the `.intunewin` and `<release name>.zip`, the same
 bundle as the artifact. Releases don't expire and anyone can download them. A release that
-already exists keeps its files (a missing bundle is added, using the published `.intunewin`),
-so publish a changed package under a new version or revision.
+already exists keeps its `.intunewin`, so publish a changed package under a new version or
+revision. Its `.zip` is rebuilt around that published `.intunewin` on every build on `main`, so
+changes to the settings, detection script or logo still reach the download.
 
 ## Website
 
