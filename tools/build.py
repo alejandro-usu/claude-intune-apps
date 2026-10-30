@@ -51,7 +51,6 @@ OUT = os.path.join(REPO, "out")
 CHUNK = 4 * 1024 * 1024
 
 sys.path.insert(0, os.path.join(REPO, "tools"))
-import intunewin  # noqa: E402
 
 
 def app_names():
@@ -156,6 +155,10 @@ def link_or_copy(src, dst):
 
 
 def build(app):
+    # Imported here, not at the top: intunewin needs the cryptography package, and site/build.py
+    # imports this module for app_names() and artifact_name() without it.
+    import intunewin
+
     if app not in app_names():
         sys.exit(f"Unknown app '{app}'. Pass its path under apps/: {', '.join(app_names())}")
     manifest = load_manifest(app)
