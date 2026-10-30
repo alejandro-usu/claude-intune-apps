@@ -15,6 +15,9 @@ Each app folder has an app.json manifest:
       "dependsOn": "Python/3.15",          optional: the app this one depends on in Intune,
                                             named like any other app. Its product and version
                                             are added to the CI artifact name.
+      "release": true,                     optional: CI on main also attaches the package to a
+                                            public GitHub Release, for permanent downloads. Only
+                                            for installers whose license allows redistribution.
       "downloads": [                        installers to fetch into the package
         {"url": "https://...", "sha256": "...", "file": "optional-name.exe"}
       ]
@@ -89,6 +92,8 @@ def load_manifest(app):
         dep = manifest["dependsOn"]
         if not isinstance(dep, str) or dep == app or dep not in app_names():
             errors.append(f'"dependsOn" must name another app ({", ".join(app_names())})')
+    if "release" in manifest and not isinstance(manifest["release"], bool):
+        errors.append('"release" must be true or false')
     setup = manifest.get("setupFile")
     if isinstance(setup, str) and setup not in names and not os.path.isfile(os.path.join(app_dir, "source", setup)):
         errors.append(f'setupFile "{setup}" is neither in source/ nor one of the downloads')
