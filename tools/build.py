@@ -28,6 +28,9 @@ For each app, this script:
      and stops if a SHA-256 doesn't match
   2. stages source/ (optional) plus the downloads in out/<app>/staging/
   3. writes out/<app>/<setupFile stem>.intunewin and verifies it
+  4. puts what Intune needs next to it, so out/<app>/ is everything to upload: Detect.ps1 (if
+     the app has one) and "Intune settings.txt" (the README's Intune app settings and detection
+     rule tables, as plain text)
 
 Usage:
     python3 tools/build.py Python/3.14         build one app (its path under apps/)
@@ -113,6 +116,52 @@ def artifact_name(app, manifest):
     return name
 
 
+def section_table(markdown, heading):
+    """Rows of the first two-column table after `heading` in a README, as (key, value) markdown."""
+    lines = markdown.splitlines()
+    try:
+        start = next(i for i, line in enumerate(lines) if line.strip() == heading)
+    except StopIteration:
+        return []
+    rows, in_table = [], False
+    for line in lines[start + 1:]:
+        stripped = line.strip()
+        if stripped.startswith("|"):
+            in_table = True
+            cells = [c.strip() for c in stripped.strip("|").split("|")]
+            key, value = cells[0], "|".join(cells[1:]).strip()
+            if set(key) <= set("-: ") or (not rows and key in ("Setting", "Field")):
+                continue  # separator or header row
+            rows.append((key, value))
+        elif in_table or stripped.startswith("#"):
+            break
+    return rows
+
+
+def plain(markdown):
+    """Inline markdown as plain text: [text](url) -> text, `code` -> code, **bold** -> bold."""
+    text = re.sub(r"\[((?:[^\]`]|`[^`]*`)+)\]\([^)\s]+\)", r"\1", markdown)
+    return text.replace("`", "").replace("**", "")
+
+
+def intune_settings_text(app, manifest):
+    """The app README's Intune settings and detection rule, as plain text to ship with the package."""
+    with open(os.path.join(APPS, app, "README.md"), encoding="utf-8") as f:
+        readme = f.read()
+    lines = [f"{manifest['name']}: Intune settings", f"From apps/{app}/README.md, which has the details.", ""]
+    for heading, title in (("## Intune app settings", "INTUNE APP SETTINGS"), ("### Detection rule", "DETECTION RULE")):
+        rows = section_table(readme, heading)
+        if rows:
+            lines += [title, ""]
+            for key, value in rows:
+                lines += [f"{plain(key)}:", f"    {plain(value)}"]
+            lines.append("")
+    if os.path.isfile(os.path.join(APPS, app, "Detect.ps1")):
+        lines += ["DETECTION SCRIPT", "", "Detect.ps1 (in this folder). Upload it as a custom detection script, with",
+                  '"Run script as 32-bit process on 64-bit clients" set to No.', ""]
+    return "\r\n".join(lines)
+
+
 def download_name(dl):
     return dl.get("file") or str(dl.get("url", "")).rsplit("/", 1)[-1]
 
@@ -180,6 +229,13 @@ def build(app):
     package = intunewin.pack(staging, manifest["setupFile"], app_out)
     intunewin.verify(package)
     shutil.rmtree(staging)
+
+    detect = os.path.join(APPS, app, "Detect.ps1")
+    if os.path.isfile(detect):
+        shutil.copyfile(detect, os.path.join(app_out, "Detect.ps1"))
+    with open(os.path.join(app_out, "Intune settings.txt"), "w", encoding="utf-8", newline="") as f:
+        f.write(intune_settings_text(app, manifest))
+    print(f"Wrote {app_out}: {', '.join(sorted(os.listdir(app_out)))}")
     return package
 
 
