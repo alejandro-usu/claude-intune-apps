@@ -29,8 +29,9 @@ For each app, this script:
   2. stages source/ (optional) plus the downloads in out/<app>/staging/
   3. writes out/<app>/<setupFile stem>.intunewin and verifies it
   4. puts what Intune needs next to it, so out/<app>/ is everything to upload: Detect.ps1 (if
-     the app has one) and "Intune settings.txt" (the README's Intune app settings and detection
-     rule tables, as plain text)
+     the app has one), "Intune logo.png" (logo-intune.png, if the app has a logo) and
+     "Intune settings.txt" (the README's Intune app settings and detection rule tables, as
+     plain text)
 
 Usage:
     python3 tools/build.py Python/3.14         build one app (its path under apps/)
@@ -96,6 +97,8 @@ def load_manifest(app):
             errors.append(f'"dependsOn" must name another app ({", ".join(app_names())})')
     if "release" in manifest and not isinstance(manifest["release"], bool):
         errors.append('"release" must be true or false')
+    if os.path.isfile(os.path.join(app_dir, "logo.png")) != os.path.isfile(os.path.join(app_dir, "logo-intune.png")):
+        errors.append("logo.png and logo-intune.png go together (see App logos in the README)")
     setup = manifest.get("setupFile")
     if isinstance(setup, str) and setup not in names and not os.path.isfile(os.path.join(app_dir, "source", setup)):
         errors.append(f'setupFile "{setup}" is neither in source/ nor one of the downloads')
@@ -159,6 +162,10 @@ def intune_settings_text(app, manifest):
     if os.path.isfile(os.path.join(APPS, app, "Detect.ps1")):
         lines += ["DETECTION SCRIPT", "", "Detect.ps1 (in this folder). Upload it as a custom detection script, with",
                   '"Run script as 32-bit process on 64-bit clients" set to No.', ""]
+    if os.path.isfile(os.path.join(APPS, app, "logo-intune.png")):
+        lines += ["LOGO", "", '"Intune logo.png" (in this folder): App information > Logo > Select image.',
+                  "It fills its square on purpose, so Company Portal's gray icon tile doesn't show; see",
+                  "App logos in the repo README.", ""]
     return "\r\n".join(lines)
 
 
@@ -233,6 +240,9 @@ def build(app):
     detect = os.path.join(APPS, app, "Detect.ps1")
     if os.path.isfile(detect):
         shutil.copyfile(detect, os.path.join(app_out, "Detect.ps1"))
+    intune_logo = os.path.join(APPS, app, "logo-intune.png")
+    if os.path.isfile(intune_logo):
+        shutil.copyfile(intune_logo, os.path.join(app_out, "Intune logo.png"))
     with open(os.path.join(app_out, "Intune settings.txt"), "w", encoding="utf-8", newline="") as f:
         f.write(intune_settings_text(app, manifest))
     print(f"Wrote {app_out}: {', '.join(sorted(os.listdir(app_out)))}")
