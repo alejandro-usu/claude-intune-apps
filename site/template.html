@@ -49,14 +49,16 @@
   .size { color: var(--muted); font-size: 13px; margin-left: 6px; }
   .more { margin: 18px 0 0; font-size: 14px; }
 
-  .button, .copy { font: inherit; font-size: 14px; cursor: pointer; border-radius: 6px; }
+  .button, .select { font: inherit; font-size: 14px; cursor: pointer; border-radius: 6px; }
   .button { display: inline-block; padding: 7px 14px; background: var(--accent); color: var(--accent-text);
     text-decoration: none; font-weight: 600; border: 1px solid var(--accent); }
   .button.secondary { background: transparent; color: var(--accent); }
-  .copy { padding: 3px 10px; background: var(--surface); color: var(--text); border: 1px solid var(--border);
+  .select { padding: 3px 10px; background: var(--surface); color: var(--text); border: 1px solid var(--border);
     white-space: nowrap; }
-  .copy:hover { border-color: var(--accent); }
-  .copy.done { border-color: var(--accent); color: var(--accent); }
+  .select:hover { border-color: var(--accent); }
+  .select.done { border-color: var(--accent); color: var(--accent); }
+  .selectable { user-select: all; -webkit-user-select: all; cursor: text; }
+  .hint { margin-top: 10px !important; font-size: 14px; }
 
   table.settings { width: 100%; border-collapse: collapse; font-size: 14px; }
   .settings th, .settings td { text-align: left; vertical-align: top; padding: 8px 10px;
@@ -87,6 +89,9 @@
   <h1>Intune App Packages</h1>
   <p>Win32 packages built from <a href="{{repo_url}}">this repo</a>, with the settings to enter in
   Intune for each. Everything here is generated from each app's README and scripts.</p>
+  <p class="hint">To copy a command, click it (or <strong>Select</strong>) and press Ctrl+C. The page
+  never writes to your clipboard itself, so browser protections against fake "paste this command"
+  pages (ClickFix) have nothing to flag.</p>
 </header>
 <main>
   <ul class="index">
@@ -99,19 +104,23 @@
   Release downloads are permanent; CI builds need a GitHub sign-in and expire after 14 days.
 </footer>
 <script>
-  document.addEventListener('click', async (event) => {
-    const button = event.target.closest('.copy');
+  // Selects the command or script for the user to copy with Ctrl+C. Deliberately never writes to
+  // the clipboard: a page putting PowerShell commands on the clipboard is what ClickFix attacks do.
+  document.addEventListener('click', (event) => {
+    const button = event.target.closest('.select');
     if (!button) return;
-    const target = button.dataset.copyTarget && document.getElementById(button.dataset.copyTarget);
-    const text = target ? target.textContent : button.dataset.copy;
-    try {
-      await navigator.clipboard.writeText(text);
-      button.textContent = 'Copied';
-      button.classList.add('done');
-      setTimeout(() => { button.textContent = 'Copy'; button.classList.remove('done'); }, 1500);
-    } catch (e) {
-      button.textContent = 'Select and copy';
-    }
+    const target = button.dataset.selectTarget
+      ? document.getElementById(button.dataset.selectTarget)
+      : button.closest('.copyable').querySelector('code');
+    const range = document.createRange();
+    range.selectNodeContents(target);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    button.textContent = 'Now press Ctrl+C';
+    button.classList.add('done');
+    clearTimeout(button.resetTimer);
+    button.resetTimer = setTimeout(() => { button.textContent = 'Select'; button.classList.remove('done'); }, 2500);
   });
 </script>
 </body>

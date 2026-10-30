@@ -103,8 +103,10 @@ def settings_table(rows, base):
     for key, value in rows:
         code = single_code(value)
         if code is not None:
-            cell = (f'<div class="copyable"><code>{html.escape(code)}</code>'
-                    f'<button class="copy" type="button" data-copy="{html.escape(code)}">Copy</button></div>')
+            # Select, not copy: a page that writes "powershell.exe ... -ExecutionPolicy Bypass" to
+            # the clipboard looks exactly like a ClickFix attack, and blockers rightly warn about it.
+            cell = (f'<div class="copyable"><code class="selectable">{html.escape(code)}</code>'
+                    f'<button class="select" type="button">Select</button></div>')
         else:
             cell = inline(value, base)
         out.append(f"<tr><th scope=\"row\">{inline(key, base)}</th><td>{cell}</td></tr>")
@@ -191,7 +193,7 @@ def app_section(app, releases, artifacts, out_dir):
                   'process" set to <strong>No</strong>.</p>',
                   '<div class="script-actions">'
                   f'<a class="button secondary" href="apps/{html.escape(app)}/Detect.ps1" download>Download Detect.ps1</a>'
-                  f'<button class="copy" type="button" data-copy-target="script-{slug(app)}">Copy</button></div>',
+                  f'<button class="select" type="button" data-select-target="script-{slug(app)}">Select</button></div>',
                   f'<pre id="script-{slug(app)}"><code>{html.escape(script)}</code></pre>']
     rule = section_table(readme, "### Detection rule")
     if rule:
