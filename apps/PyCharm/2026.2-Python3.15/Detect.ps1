@@ -19,7 +19,7 @@ try {
     $activeSetup = $hklm.OpenSubKey('SOFTWARE\Microsoft\Active Setup\Installed Components\PyCharm2026.2-Python3.14-Interpreter')
     if (-not $activeSetup -or -not $activeSetup.GetValue('StubPath')) { exit 1 }
     # Must match $ActiveSetupVersion in Install.ps1, so devices with an older package reinstall.
-    if ($activeSetup.GetValue('Version') -ne '2026,2,3,3') { exit 1 }
+    if ($activeSetup.GetValue('Version') -ne '2026,2,3,4') { exit 1 }
 
     if (-not (Get-NetFirewallRule -Group 'PyCharm 2026.2.3' -ErrorAction SilentlyContinue)) { exit 1 }
 

@@ -204,7 +204,9 @@ new minor version, for example 3.15 in `C:\Program Files\Python315`:
 
 This has been done for 3.15: [PyCharm (Python 3.15)](../2026.2-Python3.15/) is this folder
 with the steps below applied, and its README covers moving devices to it. This folder stays
-as it is for devices that keep Python 3.14.
+as it is for devices that keep Python 3.14. For later Python versions, copy that folder
+instead of this one: it also moves PyCharm's welcome screen project to the new Python, which
+otherwise keeps the Python it was created with.
 
 **In this repo** (keep the Python version consistent across all of these):
 1. Add `apps/Python/3.15` (a copy of `apps/Python/3.14`, updated). See the

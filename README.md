@@ -215,7 +215,7 @@ name (`Python/3.14`) or `all`. The button only appears once the workflow is on t
 
 Each package becomes an artifact named `<Product>-<version>`, followed by
 `_<Product>-<version>` of the app it depends on, if any. For example `Python-3.15.2`, or
-`PyCharm-2026.2.3-3_Python-3.15.2` for PyCharm with Python 3.15.2 as its default
+`PyCharm-2026.2.3-4_Python-3.15.2` for PyCharm with Python 3.15.2 as its default
 interpreter. `python3 tools/build.py --list` shows each app's artifact name.
 - download it from the run page
 - GitHub wraps it in a .zip, so extract it before uploading to Intune
