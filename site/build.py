@@ -6,12 +6,18 @@ Nothing on the site is written by hand. For each app it reads:
   - app.json                 name, version, dependency, whether it's published as a release
   - README.md                the "## Intune app settings" and "### Detection rule" tables
   - Detect.ps1               shown in full and copied to the site for download, if present
+  - logo.png                 shown next to the app, if present (see "App logos" in the README)
+
+Apps are listed newest first: by the date their current version was committed (git log -S on
+app.json, following renames), then by version. CI checks out the full history for this.
 
 Downloads come from GitHub, as JSON lines saved by the workflow before this runs:
   --releases   gh api repos/<repo>/releases --paginate --jq '.[]'
   --artifacts  gh api repos/<repo>/actions/artifacts --paginate --jq '.artifacts[]'
-Apps with "release": true link to their GitHub Release asset (permanent, public). Other apps
-link to the newest unexpired CI artifact built on main (GitHub sign-in needed, expires).
+Each download is the whole bundle tools/build.py writes to out/<app>/: the .intunewin,
+Detect.ps1 (if any) and "Intune settings.txt". Apps with "release": true link to the
+<artifact>.zip asset of their GitHub Release (permanent, public). Other apps link to the newest
+unexpired CI artifact built on main, which is the same folder (GitHub sign-in needed, expires).
 
 Usage:
     python3 site/build.py [--releases FILE] [--artifacts FILE] [--out _site]
@@ -24,6 +30,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 
 REPO_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -41,28 +48,6 @@ def read_json_lines(path):
         return []
     with open(path, encoding="utf-8") as f:
         return [json.loads(line) for line in f if line.strip()]
-
-
-def section_table(markdown, heading):
-    """Rows of the first two-column table after `heading`, as (key, value) markdown strings."""
-    lines = markdown.splitlines()
-    try:
-        start = next(i for i, line in enumerate(lines) if line.strip() == heading)
-    except StopIteration:
-        return []
-    rows, in_table = [], False
-    for line in lines[start + 1:]:
-        stripped = line.strip()
-        if stripped.startswith("|"):
-            in_table = True
-            cells = [c.strip() for c in stripped.strip("|").split("|")]
-            key, value = cells[0], "|".join(cells[1:]).strip()
-            if set(key) <= set("-: ") or (not rows and key in ("Setting", "Field")):
-                continue  # separator or header row
-            rows.append((key, value))
-        elif in_table or stripped.startswith("#"):
-            break
-    return rows
 
 
 def inline(text, base):
@@ -121,17 +106,39 @@ def human_size(n):
         n /= 1024
 
 
+def bundle_contents(app, manifest):
+    """The files in the download bundle (see tools/build.py), for listing under the button."""
+    setup = os.path.splitext(manifest["setupFile"])[0] + ".intunewin"
+    files = [setup]
+    if os.path.isfile(os.path.join(build.APPS, app, "Detect.ps1")):
+        files.append("Detect.ps1")
+    files.append("Intune settings.txt")
+    return '<ul class="contents">' + "".join(f"<li>{html.escape(f)}</li>" for f in files) + "</ul>"
+
+
 def download_block(app, manifest, artifact, releases, artifacts):
+    contents = bundle_contents(app, manifest)
     if manifest.get("release"):
         release = next((r for r in releases if r.get("tag_name") == artifact and not r.get("draft")), None)
-        asset = next((a for a in (release or {}).get("assets", []) if a["name"].endswith(".intunewin")), None)
-        if asset:
-            digest = (asset.get("digest") or "").removeprefix("sha256:")
-            sha = f'<p class="note">SHA-256 <code>{html.escape(digest)}</code></p>' if digest else ""
-            return (f'<a class="button" href="{html.escape(asset["browser_download_url"])}">Download '
-                    f'{html.escape(asset["name"])}</a> <span class="size">{human_size(asset["size"])}</span>'
+        assets = (release or {}).get("assets", [])
+        bundle = next((a for a in assets if a["name"] == f"{artifact}.zip"), None)
+        package = next((a for a in assets if a["name"].endswith(".intunewin")), None)
+        if bundle:
+            single = (f' <a class="button secondary" href="{html.escape(package["browser_download_url"])}">'
+                      f'Just the .intunewin</a>') if package else ""
+            return (f'<div class="bundle"><a class="button" href="{html.escape(bundle["browser_download_url"])}">'
+                    f'Download {html.escape(bundle["name"])}</a>{single}'
+                    f'<span class="size">{human_size(bundle["size"])}</span></div>{contents}'
                     f'<p class="note">From the <a href="{html.escape(release["html_url"])}">{html.escape(artifact)}</a> '
-                    f'release. Upload it to Intune as is.</p>{sha}')
+                    f'release. Extract the .zip, then upload the .intunewin to Intune as is.</p>')
+        if package:
+            digest = (package.get("digest") or "").removeprefix("sha256:")
+            sha = f'<p class="note">SHA-256 <code>{html.escape(digest)}</code></p>' if digest else ""
+            return (f'<a class="button" href="{html.escape(package["browser_download_url"])}">Download '
+                    f'{html.escape(package["name"])}</a> <span class="size">{human_size(package["size"])}</span>'
+                    f'<p class="note">From the <a href="{html.escape(release["html_url"])}">{html.escape(artifact)}</a> '
+                    f'release. Upload it to Intune as is. The bundle with the settings is added the next time CI '
+                    f'builds this app.</p>{sha}')
         return (f'<p class="missing">No release for {html.escape(artifact)} yet. CI creates it the next '
                 f'time it builds this app on {BRANCH}.</p>')
 
@@ -143,16 +150,53 @@ def download_block(app, manifest, artifact, releases, artifacts):
         a = current[0]
         run_id = a["workflow_run"]["id"]
         expires = a.get("expires_at", "")[:10]
-        return (f'<a class="button" href="{GITHUB}/actions/runs/{run_id}/artifacts/{a["id"]}">Download '
-                f'{html.escape(artifact)}.zip</a> <span class="size">{human_size(a.get("size_in_bytes", 0))}</span>'
+        return (f'<div class="bundle"><a class="button" href="{GITHUB}/actions/runs/{run_id}/artifacts/{a["id"]}">'
+                f'Download {html.escape(artifact)}.zip</a>'
+                f'<span class="size">{human_size(a.get("size_in_bytes", 0))}</span></div>{contents}'
                 f'<p class="note">CI build from <a href="{GITHUB}/actions/runs/{run_id}">this run</a>. Needs a '
-                f'GitHub sign-in, and expires {html.escape(expires)}. Extract the .zip before uploading to '
-                f'Intune. This app isn\'t published as a release because its installer\'s license doesn\'t '
-                f'allow redistributing it.</p>')
+                f'GitHub sign-in, and expires {html.escape(expires)}. Extract the .zip, then upload the '
+                f'.intunewin to Intune. This app isn\'t published as a release because its installer\'s '
+                f'license doesn\'t allow redistributing it.</p>')
     return (f'<p class="missing">No current build of {html.escape(artifact)}. Builds expire after 14 days: '
             f'open <a href="{GITHUB}/actions/workflows/build.yml">Actions → Build Intune packages → Run '
             f'workflow</a> on {BRANCH} and enter <code>{html.escape(app)}</code>. This page updates when that run '
             f'finishes.</p>')
+
+
+def version_key(version):
+    """Natural sort key: "2026.2.3-4" -> (2026, 2, 3, 4), so 3.15.2 sorts above 3.14.7."""
+    return tuple(int(p) if p.isdigit() else p for p in re.split(r"[.\-+]", version))
+
+
+def version_committed(app, version):
+    """When the app's current version was committed: the newest commit that added or removed its
+    "version" line in app.json, following renames. Empty if git or the history isn't available."""
+    try:
+        out = subprocess.run(["git", "log", "--follow", "--format=%cI", "-S", f'"version": "{version}"',
+                              "--", f"apps/{app}/app.json"], cwd=REPO_DIR, capture_output=True, text=True,
+                             check=True).stdout.split()
+    except (OSError, subprocess.CalledProcessError):
+        return ""
+    return out[0] if out else ""
+
+
+def newest_first(apps):
+    def key(app):
+        version = build.load_manifest(app)["version"]
+        # Not committed yet (a local preview of a new app): treat it as the newest.
+        return (version_committed(app, version) or "9999", version_key(version))
+    return sorted(apps, key=key, reverse=True)
+
+
+def logo(app, out_dir):
+    """An <img> for apps/<app>/logo.png, copied to the site, or "" if the app has none."""
+    path = os.path.join(build.APPS, app, "logo.png")
+    if not os.path.isfile(path):
+        return ""
+    target = os.path.join(out_dir, "apps", app)
+    os.makedirs(target, exist_ok=True)
+    shutil.copyfile(path, os.path.join(target, "logo.png"))
+    return f'<img class="logo" src="apps/{html.escape(app)}/logo.png" alt="">'
 
 
 def slug(app):
@@ -173,11 +217,11 @@ def app_section(app, releases, artifacts, out_dir):
         meta.append(f'depends on <a href="#{slug(dep)}">{html.escape(dep)}</a>')
 
     parts = [f'<section class="app" id="{slug(app)}">',
-             f"<h2>{html.escape(manifest['name'])}</h2>",
+             f'<div class="app-title">{logo(app, out_dir)}<h2>{html.escape(manifest["name"])}</h2></div>',
              f'<p class="meta">{" · ".join(meta)}</p>',
              '<div class="download">', download_block(app, manifest, artifact, releases, artifacts), "</div>"]
 
-    settings = section_table(readme, "## Intune app settings")
+    settings = build.section_table(readme, "## Intune app settings")
     if settings:
         parts += ["<h3>Intune app settings</h3>", settings_table(settings, base)]
 
@@ -195,7 +239,7 @@ def app_section(app, releases, artifacts, out_dir):
                   f'<a class="button secondary" href="apps/{html.escape(app)}/Detect.ps1" download>Download Detect.ps1</a>'
                   f'<button class="select" type="button" data-select-target="script-{slug(app)}">Select</button></div>',
                   f'<pre id="script-{slug(app)}"><code>{html.escape(script)}</code></pre>']
-    rule = section_table(readme, "### Detection rule")
+    rule = build.section_table(readme, "### Detection rule")
     if rule:
         parts += ["<h3>Detection rule</h3>", settings_table(rule, base)]
 
@@ -217,11 +261,12 @@ def main():
     os.makedirs(args.out)
 
     sections, index = [], []
-    for app in build.app_names():
+    for app in newest_first(build.app_names()):
         manifest, artifact, section = app_section(app, releases, artifacts, args.out)
         sections.append(section)
         kind = "Release" if manifest.get("release") else "CI build"
-        index.append(f'<li><a href="#{slug(app)}"><span class="name">{html.escape(manifest["name"])}</span>'
+        image = logo(app, args.out)
+        index.append(f'<li><a class="{"with-logo" if image else ""}" href="#{slug(app)}">{image}<span class="name">{html.escape(manifest["name"])}</span>'
                      f'<span class="tag">{kind}</span><span class="artifact">{html.escape(artifact)}</span></a></li>')
 
     with open(os.path.join(SITE_DIR, "template.html"), encoding="utf-8") as f:

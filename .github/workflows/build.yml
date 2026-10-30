@@ -136,21 +136,23 @@ jobs:
             echo "### ${{ matrix.app }} $version"
             echo "- Package: \`$(basename "$pkg")\`, $(stat -c %s "$pkg") bytes"
             echo "- SHA-256: \`$(sha256sum "$pkg" | cut -d' ' -f1)\`"
-            echo "- Download the **$artifact** artifact below. GitHub delivers it inside a .zip; extract it before uploading to Intune."
+            echo "- Download the **$artifact** artifact below: the .intunewin with its detection script and Intune settings. GitHub delivers it as a .zip; extract it, then upload the .intunewin to Intune."
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # The whole out/<app>/ folder: the .intunewin, Detect.ps1 (if any) and Intune settings.txt.
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.summary.outputs.artifact }}
-          path: ${{ steps.summary.outputs.package }}
+          path: out/${{ matrix.app }}/
           # Packages are encrypted, so compressing them again gains nothing.
           compression-level: 0
           retention-days: 14
           if-no-files-found: error
 
-      # A public, permanent download, named like the artifact (e.g. Python-3.15.2). Only on main,
-      # and only for apps whose installer may be redistributed ("release": true). An existing
-      # release keeps its package: rebuilding re-encrypts it, but the contents are the same.
+      # A public, permanent download, named like the artifact (e.g. Python-3.15.2), holding the
+      # .intunewin and <artifact>.zip (the whole out/<app>/ bundle). Only on main, and only for apps
+      # whose installer may be redistributed ("release": true). An existing release keeps its
+      # .intunewin: rebuilding re-encrypts it, so the bundle is made with the published one.
       - name: Publish release
         if: github.ref == 'refs/heads/main' && steps.summary.outputs.release == 'true'
         env:
@@ -160,16 +162,26 @@ jobs:
           APP: ${{ matrix.app }}
         run: |
           file=$(basename "$PKG")
+          bundle="$RUNNER_TEMP/$TAG.zip"
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | grep -qxF "$file"; then
-              echo "Release $TAG already has $file; leaving it."
+            assets=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
+            if grep -qxF "$file" <<<"$assets"; then
+              echo "Release $TAG already has $file; bundling that copy."
+              gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "$file" --dir "$(dirname "$PKG")" --clobber
             else
               gh release upload "$TAG" "$PKG" --repo "$GITHUB_REPOSITORY"
             fi
+            if grep -qxF "$TAG.zip" <<<"$assets"; then
+              echo "Release $TAG already has $TAG.zip; leaving it."
+            else
+              (cd "out/$APP" && zip -q -r "$bundle" .)
+              gh release upload "$TAG" "$bundle" --repo "$GITHUB_REPOSITORY"
+            fi
           else
+            (cd "out/$APP" && zip -q -r "$bundle" .)
             notes="Intune package for \`$APP\`: \`$file\`, SHA-256 \`$(sha256sum "$PKG" | cut -d' ' -f1)\`.
-          Upload it to Intune as is. Settings and detection: https://github.com/$GITHUB_REPOSITORY/blob/main/apps/$APP/README.md"
-            gh release create "$TAG" "$PKG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+          $TAG.zip has the .intunewin with its detection script (if any) and Intune settings. Details: https://github.com/$GITHUB_REPOSITORY/blob/main/apps/$APP/README.md"
+            gh release create "$TAG" "$PKG" "$bundle" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
               --title "$TAG" --notes "$notes" --latest=false
           fi
           echo "- Published in the [$TAG](https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG) release." >> "$GITHUB_STEP_SUMMARY"
@@ -193,6 +205,8 @@ jobs:
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # the site lists apps newest first, by when their version was committed
 
       - uses: actions/setup-python@v5
         with:
