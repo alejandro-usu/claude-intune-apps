@@ -182,12 +182,18 @@ details of that import, confirmed in the 2026.2.3 build (`ConfigImportHelper`, `
 
 ## Python packages for projects
 
-Neither this app nor the Python app installs extra packages (numpy, pandas and so on). Users
-install what they need into each project. By default, PyCharm's New Project wizard creates a
-virtual environment (`.venv`) for each project, and packages go there, so no admin rights are
-needed. Packages in the system Python wouldn't be visible inside these environments anyway.
+The [Python 3.15 packages](../../PythonPackages/3.15/) app installs numpy, matplotlib, pandas,
+scipy, sympy, dataretrieval and ipykernel into the system Python 3.15, so they're there for the
+welcome screen's **New Script** and **New Notebook**, and for any project that uses the
+**Python 3.15** interpreter itself. Assign it with this app, or add it to this app's Intune
+dependencies.
 
-In PyCharm, open the project, open the **Terminal** tab (it starts with the project's
+By default, though, PyCharm's New Project wizard creates a virtual environment (`.venv`) for
+each project, and a venv doesn't see the system Python's packages. Users either tick **Inherit
+packages from base interpreter** when creating the project (it's unticked by default, and that
+can't be changed), or install what they need into the project, which needs no admin rights.
+
+To install into a project: in PyCharm, open the project, open the **Terminal** tab (it starts with the project's
 environment active), and run, for example:
 
 ```
@@ -204,7 +210,8 @@ Other ways to do the same:
   `.venv\Scripts\python -m pip install <packages>`
 
 Notes:
-- The device needs internet access to reach PyPI.
+- The device needs internet access to reach PyPI. The packages app doesn't: it brings its own
+  copies.
 - Running pip against the system Python (`C:\Program Files\Python315`) fails with a permission
   error for standard users. That's expected; install into the project instead.
 - Projects created with PyCharm's **uv** option may not include pip. Use

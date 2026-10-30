@@ -1,0 +1,10 @@
+# Packages this app installs into Python 3.15, machine-wide. Their dependencies are added by
+# tools/pin_wheels.py, which pins everything into source/requirements.txt and app.json.
+numpy
+matplotlib
+pandas
+scipy
+sympy
+dataretrieval
+# Jupyter's kernel, for running notebooks (PyCharm's New Notebook) with this Python.
+ipykernel

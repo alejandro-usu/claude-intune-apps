@@ -14,6 +14,7 @@ Intune. See [Website](#website).
 |---|---|
 | [Python/3.14](apps/Python/3.14/) | Python 3.14.7, all users, on PATH, with the `py` launcher |
 | [Python/3.15](apps/Python/3.15/) | Python 3.15.2, all users, on PATH, with the `py` launcher |
+| [PythonPackages/3.15](apps/PythonPackages/3.15/) | numpy, matplotlib, pandas, scipy, sympy, dataretrieval and ipykernel, pinned and installed offline into Python 3.15. Depends on Python/3.15. |
 | [PyCharm/2026.2-Python3.14](apps/PyCharm/2026.2-Python3.14/) | PyCharm 2026.2.3, with Python 3.14 as the default interpreter and first-run prompts pre-answered. Depends on Python/3.14. |
 | [PyCharm/2026.2-Python3.15](apps/PyCharm/2026.2-Python3.15/) | The same PyCharm 2026.2.3, with Python 3.15 as the default interpreter. Depends on Python/3.15. Assign only one of the two PyCharm apps to a device. |
 
