@@ -6,6 +6,10 @@
 <title>Intune App Packages</title>
 <meta name="description" content="Intune Win32 packages built from this repo: downloads, install and uninstall commands, and detection rules.">
 <meta name="color-scheme" content="dark">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.png" type="image/png" sizes="64x64">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<script>document.documentElement.classList.add('js');</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -29,7 +33,7 @@
       linear-gradient(90deg, rgba(57, 255, 136, 0.035) 1px, transparent 1px);
     background-size: 44px 44px; background-attachment: fixed;
   }
-  main, footer, .header-inner { max-width: 980px; margin: 0 auto; padding: 0 16px; }
+  main, footer, .header-inner { max-width: 1180px; margin: 0 auto; padding: 0 16px; }
   a { color: var(--neon-2); text-underline-offset: 3px; }
   a:hover { color: var(--neon); }
   code, pre { font-family: "JetBrains Mono", ui-monospace, Consolas, monospace; font-size: 13px; }
@@ -69,19 +73,26 @@
     text-shadow: 0 0 8px rgba(57, 255, 136, 0.9), 0 0 28px rgba(57, 255, 136, 0.45); }
 
   /* --- Index of apps --------------------------------------------------------------------- */
+  /* Every card the same size: equal columns, and every row as tall as the tallest card. */
   .index { list-style: none; padding: 0; margin: 28px 0 8px; display: grid; gap: 10px;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
-  .index a { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: center;
-    padding: 12px 14px; background: var(--panel); border: 1px solid var(--line); text-decoration: none; color: var(--text);
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); grid-auto-rows: 1fr; }
+  .index li { display: flex; }
+  .index .card { flex: 1; display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-content: center;
+    align-items: center; padding: 12px 14px; background: var(--panel); border: 1px solid var(--line);
+    font: inherit; color: var(--text); text-align: left; cursor: pointer;
     clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, var(--cut) 100%, 0 calc(100% - var(--cut)));
     transition: border-color .15s, box-shadow .15s, background .15s; }
-  .index a:hover { border-color: var(--neon); box-shadow: var(--glow) inset; background: rgba(10, 40, 30, 0.85); }
-  .index a.with-logo { grid-template-columns: auto 1fr auto; }
+  .index .card:hover { border-color: var(--neon); box-shadow: var(--glow) inset; background: rgba(10, 40, 30, 0.85); }
+  .index .card:focus-visible { outline: 2px solid var(--neon-2); outline-offset: 2px; }
+  .index .card[aria-pressed="true"] { border-color: var(--neon); background: rgba(57, 255, 136, 0.13);
+    box-shadow: var(--glow) inset; }
+  .index .card[aria-pressed="true"] .tag { background: var(--neon); color: var(--on-neon); }
+  .index .card.with-logo { grid-template-columns: auto 1fr auto; }
   .index .logo { grid-row: span 2; }
   .index .name { font-weight: 600; }
   .index .artifact { grid-column: 1 / -1; color: var(--muted); font-size: 12px; font-family: "JetBrains Mono", monospace;
     overflow-wrap: anywhere; }
-  .index a.with-logo .artifact { grid-column: 2 / -1; }
+  .index .card.with-logo .artifact { grid-column: 2 / -1; }
   .tag { font-family: "JetBrains Mono", monospace; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
     color: var(--neon); border: 1px solid var(--line-strong); padding: 0 8px; }
   img.logo { width: 36px; height: 36px; object-fit: contain; }
@@ -89,8 +100,13 @@
   .app-title img.logo { width: 44px; height: 44px; filter: drop-shadow(0 0 8px rgba(57, 255, 136, 0.35)); }
 
   /* --- App sections ------------------------------------------------------------------------ */
+  /* Sections stay hidden until their card is selected; two or more sit side by side. */
+  .js .app:not(.shown) { display: none; }
+  .apps.compare { display: grid; gap: 20px; align-items: start; margin-top: 26px;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); }
+  .apps.compare .app { margin: 0; }
   .app { position: relative; background: var(--panel); border: 1px solid var(--line-strong);
-    padding: 22px 24px; margin: 26px 0; scroll-margin-top: 16px;
+    padding: 22px 24px; margin: 26px 0; scroll-margin-top: 16px; min-width: 0;
     clip-path: polygon(0 0, calc(100% - 22px) 0, 100% 22px, 100% 100%, 22px 100%, 0 calc(100% - 22px));
     box-shadow: 0 0 0 1px rgba(57, 255, 136, 0.06) inset, 0 0 30px rgba(57, 255, 136, 0.08) inset; }
   .app::before { content: ""; position: absolute; left: 0; top: 0; width: 140px; height: 2px;
@@ -165,13 +181,64 @@
   <ul class="index">
 {{index}}
   </ul>
+  <div class="apps" id="apps">
 {{apps}}
+  </div>
 </main>
 <footer>
   Generated {{generated}} from <a href="{{repo_url}}">{{repo_url}}</a>.
   Release downloads are permanent; CI builds need a GitHub sign-in and expire after 14 days.
 </footer>
 <script>
+  // Cards toggle their app's section. The page starts empty; several can be shown at once to
+  // compare them. The selection is kept in the URL (#python-3-15,python-3-14) for sharing.
+  (() => {
+    const cards = [...document.querySelectorAll('.card')];
+    const apps = document.getElementById('apps');
+    const selected = new Set();
+    const isApp = (id) => { const el = document.getElementById(id); return el && el.classList.contains('app'); };
+    const motion = () => matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+
+    function render(reveal) {
+      const ids = cards.map((c) => c.dataset.app).filter((id) => selected.has(id));
+      for (const section of apps.querySelectorAll('.app')) section.classList.toggle('shown', selected.has(section.id));
+      for (const card of cards) card.setAttribute('aria-pressed', String(selected.has(card.dataset.app)));
+      apps.classList.toggle('compare', ids.length > 1);
+      history.replaceState(null, '', ids.length ? '#' + ids.join(',') : location.pathname + location.search);
+      const target = reveal && document.getElementById(reveal);
+      if (target && target.getBoundingClientRect().top > innerHeight - 120) {
+        target.scrollIntoView({ behavior: motion(), block: 'start' });
+      }
+    }
+
+    function fromHash() {
+      selected.clear();
+      for (const id of decodeURIComponent(location.hash.slice(1)).split(',')) if (isApp(id)) selected.add(id);
+      render();
+    }
+
+    document.addEventListener('click', (event) => {
+      const card = event.target.closest('.card');
+      if (card) {
+        const id = card.dataset.app;
+        selected.has(id) ? selected.delete(id) : selected.add(id);
+        render(selected.has(id) ? id : null);
+        return;
+      }
+      // "depends on" links inside a section add that app to the selection.
+      const link = event.target.closest('a[href^="#"]');
+      if (link && isApp(link.getAttribute('href').slice(1))) {
+        event.preventDefault();
+        const id = link.getAttribute('href').slice(1);
+        selected.add(id);
+        render();
+        document.getElementById(id).scrollIntoView({ behavior: motion(), block: 'start' });
+      }
+    });
+    addEventListener('hashchange', fromHash);
+    fromHash();
+  })();
+
   // Selects the command or script for the user to copy with Ctrl+C. Deliberately never writes to
   // the clipboard: a page putting PowerShell commands on the clipboard is what ClickFix attacks do.
   document.addEventListener('click', (event) => {
