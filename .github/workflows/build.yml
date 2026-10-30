@@ -3,11 +3,14 @@ name: Build Intune packages
 # On push: checks every app, then builds only the apps whose folders changed
 # (all apps when tools/ or this workflow changed).
 # On demand (Actions tab → Run workflow): builds the named app, or all of them.
+# On main, it also publishes a GitHub Release for apps with "release": true in app.json, and
+# rebuilds the GitHub Pages site (site/) last, so it links to what this run built.
 on:
   push:
     paths:
       - apps/**
       - tools/**
+      - site/**
       - .github/workflows/build.yml
   workflow_dispatch:
     inputs:
@@ -99,6 +102,8 @@ jobs:
     if: needs.check.outputs.apps != '[]'
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    permissions:
+      contents: write  # for the release step
     strategy:
       fail-fast: false
       matrix:
@@ -123,8 +128,10 @@ jobs:
           pkg=$(ls out/${{ matrix.app }}/*.intunewin)
           # <Product>-<version>, plus _<Product>-<version> of the app it depends on (tools/build.py).
           artifact=$(python -c "import sys; sys.path.insert(0, 'tools'); import build; app = '${{ matrix.app }}'; print(build.artifact_name(app, build.load_manifest(app)))")
+          release=$(python -c "import json; print(str(json.load(open('apps/${{ matrix.app }}/app.json')).get('release', False)).lower())")
           echo "artifact=$artifact" >> "$GITHUB_OUTPUT"
           echo "package=$pkg" >> "$GITHUB_OUTPUT"
+          echo "release=$release" >> "$GITHUB_OUTPUT"
           {
             echo "### ${{ matrix.app }} $version"
             echo "- Package: \`$(basename "$pkg")\`, $(stat -c %s "$pkg") bytes"
@@ -140,3 +147,72 @@ jobs:
           compression-level: 0
           retention-days: 14
           if-no-files-found: error
+
+      # A public, permanent download, named like the artifact (e.g. Python-3.15.2). Only on main,
+      # and only for apps whose installer may be redistributed ("release": true). An existing
+      # release keeps its package: rebuilding re-encrypts it, but the contents are the same.
+      - name: Publish release
+        if: github.ref == 'refs/heads/main' && steps.summary.outputs.release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.summary.outputs.artifact }}
+          PKG: ${{ steps.summary.outputs.package }}
+          APP: ${{ matrix.app }}
+        run: |
+          file=$(basename "$PKG")
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | grep -qxF "$file"; then
+              echo "Release $TAG already has $file; leaving it."
+            else
+              gh release upload "$TAG" "$PKG" --repo "$GITHUB_REPOSITORY"
+            fi
+          else
+            notes="Intune package for \`$APP\`: \`$file\`, SHA-256 \`$(sha256sum "$PKG" | cut -d' ' -f1)\`.
+          Upload it to Intune as is. Settings and detection: https://github.com/$GITHUB_REPOSITORY/blob/main/apps/$APP/README.md"
+            gh release create "$TAG" "$PKG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+              --title "$TAG" --notes "$notes" --latest=false
+          fi
+          echo "- Published in the [$TAG](https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG) release." >> "$GITHUB_STEP_SUMMARY"
+
+  # The GitHub Pages site: every app's download, Intune settings and detection, from main.
+  # Runs after the builds (or when none were needed), so it links to this run's packages.
+  site:
+    needs: [check, build]
+    if: ${{ !cancelled() && needs.check.result == 'success' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read  # to list CI artifacts
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: List releases and CI builds
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/releases" --paginate --jq '.[] | tojson' > "$RUNNER_TEMP/releases.jsonl"
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts" --paginate --jq '.artifacts[] | tojson' > "$RUNNER_TEMP/artifacts.jsonl"
+
+      - name: Build site
+        run: python site/build.py --releases "$RUNNER_TEMP/releases.jsonl" --artifacts "$RUNNER_TEMP/artifacts.jsonl" --out _site
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deploy
+        uses: actions/deploy-pages@v4

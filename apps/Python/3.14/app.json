@@ -2,6 +2,7 @@
   "name": "Python 3.14.7",
   "version": "3.14.7",
   "setupFile": "python-3.14.7-amd64.exe",
+  "release": true,
   "downloads": [
     {
       "url": "https://www.python.org/ftp/python/3.14.7/python-3.14.7-amd64.exe",

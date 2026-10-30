@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Intune App Packages</title>
+<meta name="description" content="Intune Win32 packages built from this repo: downloads, install and uninstall commands, and detection rules.">
+<style>
+  :root {
+    --bg: #f7f7f5; --surface: #ffffff; --text: #1d1d1b; --muted: #5f5f5a; --border: #e2e1dc;
+    --accent: #0b5cad; --accent-text: #ffffff; --code-bg: #f0efeb; --warn: #8a5300; --warn-bg: #fff4e0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161615; --surface: #1f1f1d; --text: #ebeae6; --muted: #a3a29c; --border: #34332f;
+      --accent: #6aa8f0; --accent-text: #0e1620; --code-bg: #2a2a27; --warn: #f0b75c; --warn-bg: #33270f;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main, header, footer { max-width: 960px; margin: 0 auto; padding: 0 16px; }
+  header { padding-top: 40px; padding-bottom: 8px; }
+  h1 { font-size: 26px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  header p { margin: 0; color: var(--muted); max-width: 680px; }
+  a { color: var(--accent); }
+  code, pre { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 13px; }
+  code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+
+  .index { list-style: none; padding: 0; margin: 24px 0 8px; display: grid; gap: 8px;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+  .index a { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; padding: 12px 14px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    text-decoration: none; color: var(--text); }
+  .index a:hover { border-color: var(--accent); }
+  .index .name { font-weight: 600; }
+  .index .artifact { grid-column: 1 / -1; color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+  .tag { font-size: 12px; color: var(--muted); border: 1px solid var(--border); border-radius: 999px;
+    padding: 0 8px; align-self: center; }
+
+  .app { background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 20px 22px; margin: 20px 0; scroll-margin-top: 16px; }
+  .app h2 { margin: 0; font-size: 20px; }
+  .app h3 { font-size: 15px; margin: 22px 0 8px; }
+  .meta { margin: 4px 0 14px; color: var(--muted); font-size: 14px; }
+  .download { margin: 0 0 4px; }
+  .note { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
+  .missing { margin: 0; padding: 10px 12px; border-radius: 6px; background: var(--warn-bg); color: var(--warn); }
+  .size { color: var(--muted); font-size: 13px; margin-left: 6px; }
+  .more { margin: 18px 0 0; font-size: 14px; }
+
+  .button, .copy { font: inherit; font-size: 14px; cursor: pointer; border-radius: 6px; }
+  .button { display: inline-block; padding: 7px 14px; background: var(--accent); color: var(--accent-text);
+    text-decoration: none; font-weight: 600; border: 1px solid var(--accent); }
+  .button.secondary { background: transparent; color: var(--accent); }
+  .copy { padding: 3px 10px; background: var(--surface); color: var(--text); border: 1px solid var(--border);
+    white-space: nowrap; }
+  .copy:hover { border-color: var(--accent); }
+  .copy.done { border-color: var(--accent); color: var(--accent); }
+
+  table.settings { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .settings th, .settings td { text-align: left; vertical-align: top; padding: 8px 10px;
+    border-top: 1px solid var(--border); }
+  .settings th { font-weight: 500; color: var(--muted); width: 30%; }
+  .copyable { display: flex; gap: 8px; align-items: flex-start; }
+  .copyable code { flex: 1; display: block; padding: 6px 8px; }
+
+  .script-actions { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  pre { margin: 0; padding: 12px 14px; background: var(--code-bg); border-radius: 6px; overflow-x: auto;
+    max-height: 420px; }
+  pre code { background: none; padding: 0; }
+
+  footer { color: var(--muted); font-size: 13px; padding-top: 8px; padding-bottom: 40px; }
+
+  @media (max-width: 600px) {
+    .app { padding: 16px; }
+    .settings th, .settings td { display: block; width: 100%; padding-left: 0; padding-right: 0; }
+    .settings th { padding-bottom: 0; border-top: 1px solid var(--border); }
+    .settings td { border-top: 0; }
+    .copyable { flex-direction: column; }
+    .copyable code { width: 100%; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Intune App Packages</h1>
+  <p>Win32 packages built from <a href="{{repo_url}}">this repo</a>, with the settings to enter in
+  Intune for each. Everything here is generated from each app's README and scripts.</p>
+</header>
+<main>
+  <ul class="index">
+{{index}}
+  </ul>
+{{apps}}
+</main>
+<footer>
+  Generated {{generated}} from <a href="{{repo_url}}">{{repo_url}}</a>.
+  Release downloads are permanent; CI builds need a GitHub sign-in and expire after 14 days.
+</footer>
+<script>
+  document.addEventListener('click', async (event) => {
+    const button = event.target.closest('.copy');
+    if (!button) return;
+    const target = button.dataset.copyTarget && document.getElementById(button.dataset.copyTarget);
+    const text = target ? target.textContent : button.dataset.copy;
+    try {
+      await navigator.clipboard.writeText(text);
+      button.textContent = 'Copied';
+      button.classList.add('done');
+      setTimeout(() => { button.textContent = 'Copy'; button.classList.remove('done'); }, 1500);
+    } catch (e) {
+      button.textContent = 'Select and copy';
+    }
+  });
+</script>
+</body>
+</html>

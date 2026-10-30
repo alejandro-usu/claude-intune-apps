@@ -1,5 +1,6 @@
 # Build output and downloaded installers are too large for git; tools/build.py recreates them.
 /out/
+/_site/
 /.cache/
 *.intunewin
 *.exe
