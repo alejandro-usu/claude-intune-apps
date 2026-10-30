@@ -302,8 +302,11 @@ They're ordered by how reliably they give the vendor's own artwork.
 Don't use image-search results, logo aggregator sites, favicon scrapers or AI-generated
 look-alikes. They're often outdated, low-resolution, altered or unlicensed.
 
-Then make the 256×256 PNG (Pillow; for an SVG, first `pip install cairosvg` and
-`cairosvg.svg2png(url="logo.svg", write_to="big.png", output_width=512)`):
+Then make the 256×256 PNG with Pillow. For an SVG, render it first: `pip install cairosvg` and
+`cairosvg.svg2png(url="logo.svg", write_to="big.png", output_width=512)`, or, if cairo isn't
+installed, load it into Chromium with Playwright as a `data:image/svg+xml;base64,...` image at
+256×256 and take an element screenshot with `omit_background=True` (that gives the finished PNG
+directly). This repo's logos were made that way.
 
 ```python
 from PIL import Image

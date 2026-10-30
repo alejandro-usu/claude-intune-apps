@@ -13,6 +13,8 @@ cover everything and its exit codes are the standard ones Intune already underst
 
 The hash matches the `sha256_sum` python.org publishes for this file.
 
+Logo ([`logo.png`](logo.png)): `PC/icons/logo.svg` from CPython's `v3.15.2` tag, the Python logo that `python.exe`'s icon is made from, rendered at 256×256, retrieved 2026-10-30.
+
 ## Build the package
 
 ```sh

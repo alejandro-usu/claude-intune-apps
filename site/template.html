@@ -65,11 +65,8 @@
   .kicker { font-family: "JetBrains Mono", monospace; font-size: 12px; letter-spacing: 0.3em; color: var(--neon-2);
     text-transform: uppercase; margin: 0 0 10px; }
   h1 { font-family: Orbitron, system-ui, sans-serif; font-weight: 900; font-size: clamp(30px, 6vw, 52px);
-    line-height: 1.05; margin: 0 0 14px; letter-spacing: 0.04em; text-transform: uppercase; color: #eafff4;
+    line-height: 1.05; margin: 0; letter-spacing: 0.04em; text-transform: uppercase; color: #eafff4;
     text-shadow: 0 0 8px rgba(57, 255, 136, 0.9), 0 0 28px rgba(57, 255, 136, 0.45); }
-  header p { margin: 0; color: var(--muted); max-width: 640px; }
-  header p strong { color: var(--text); }
-  .hint { margin-top: 10px !important; font-size: 14px; }
 
   /* --- Index of apps --------------------------------------------------------------------- */
   .index { list-style: none; padding: 0; margin: 28px 0 8px; display: grid; gap: 10px;
@@ -161,12 +158,6 @@
   <div class="header-inner">
     <p class="kicker">Win32 · Intune · Packages</p>
     <h1>Intune App Packages</h1>
-    <p>Built from <a href="{{repo_url}}">this repo</a>, newest first. Each download has the
-    <strong>.intunewin</strong>, the <strong>detection script</strong> (if the app has one) and the
-    Intune settings together. Everything here is generated from each app's README and scripts.</p>
-    <p class="hint">To copy a command, click it (or <strong>Select</strong>) and press Ctrl+C. The page
-    never writes to your clipboard itself, so browser protections against fake "paste this command"
-    pages (ClickFix) have nothing to flag.</p>
   </div>
   <div class="horizon" aria-hidden="true"><div class="sun"></div><div class="floor"></div></div>
 </header>
