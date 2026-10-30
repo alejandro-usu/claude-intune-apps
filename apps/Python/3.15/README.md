@@ -189,5 +189,6 @@ docs again before then, since machine-wide support may improve.
 ## Uninstall
 
 The uninstall command runs the same installer with `/uninstall`. Packages installed with pip
-into `C:\Program Files\Python315` go with it. The `py` launcher stays (it's permanent), and
-apps that depend on Python stay installed.
+into `C:\Program Files\Python315` go with it, including the
+[Python 3.15 packages](../../PythonPackages/3.15/) app's. The `py` launcher stays (it's
+permanent), and apps that depend on Python stay installed.
