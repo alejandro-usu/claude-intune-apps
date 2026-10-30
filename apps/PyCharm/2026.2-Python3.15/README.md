@@ -18,6 +18,8 @@ them can be on a device; see
 
 The hash matches JetBrains' published `pycharm-2026.2.3.exe.sha256`.
 
+Logo ([`logo.png`](logo.png)): `bin\pycharm.svg` from JetBrains' `pycharm-2026.2.3.win.zip`, rendered at 256×256, retrieved 2026-10-30.
+
 ## Build the package
 
 ```sh

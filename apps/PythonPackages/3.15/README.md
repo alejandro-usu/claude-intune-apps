@@ -23,6 +23,8 @@ The install is offline: every wheel is in the package, pinned by URL and SHA-256
 like any other download, and pip installs only those (`--no-index --require-hashes`). Devices
 don't need to reach PyPI, and every device gets the same versions.
 
+Logo ([`logo.png`](logo.png)): the PyPI logo, `https://pypi.org/static/images/logo-small.0e0855d0.svg`, rendered at 256×256, retrieved 2026-10-30. The packages come from PyPI, and it keeps this app's card distinct from Python's.
+
 ## Where users get these packages
 
 PyCharm 2026.2 creates a separate virtual environment (venv) for each new project by default,
