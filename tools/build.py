@@ -164,7 +164,8 @@ def intune_settings_text(app, manifest):
                   '"Run script as 32-bit process on 64-bit clients" set to No.', ""]
     if os.path.isfile(os.path.join(APPS, app, "logo-intune.png")):
         lines += ["LOGO", "", '"Intune logo.png" (in this folder): App information > Logo > Select image.',
-                  "It has a white background on purpose; see App logos in the repo README.", ""]
+                  "It fills its square on purpose, so Company Portal's gray icon tile doesn't show; see",
+                  "App logos in the repo README.", ""]
     return "\r\n".join(lines)
 
 

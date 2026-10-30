@@ -29,7 +29,7 @@ apps/
       app.json        name, version, setup file, installer URLs + SHA-256
       README.md       Intune app settings and what the install does
       logo.png        optional: the app's logo, transparent, for the website (see App logos)
-      logo-intune.png the same logo on white, for Intune and Company Portal
+      logo-intune.png the same logo on a square colored from it, for Intune (tools/intune_logo.py)
       Detect.ps1      custom detection script, if the app needs one (uploaded to Intune
                       separately, not packaged)
       source/         scripts and config packaged with the installers, if the app needs them
@@ -284,11 +284,13 @@ One-time setup: in the repo's **Settings → Pages**, set **Source** to **GitHub
 An app with a logo has two files in its folder, both 256×256 PNGs:
 
 - **`logo.png`**, with a transparent background, for the website (which is dark).
-- **`logo-intune.png`**, the same logo on solid white with a little padding, for the Intune
-  app's **Logo** (**App information → Select image**). Company Portal draws a light gray tile
-  behind every app icon, and transparent pixels let it show through, so a transparent logo
-  sits in a gray square. On white it looks like the other apps (the R logo, for example, is on
-  white too). It's in each download bundle as `Intune logo.png`, and on the website as
+- **`logo-intune.png`**, the same logo on a full-bleed square colored from the logo itself, for
+  the Intune app's **Logo** (**App information → Select image**). Company Portal draws a light
+  gray tile behind every app icon, and transparent pixels let it show through, so a transparent
+  logo sits in a gray square; a fully colored square covers it. `tools/intune_logo.py` makes it
+  from `logo.png`: the background is a deep radial gradient of the darkest of the logo's main
+  saturated colors (Python's blue becomes navy, PyCharm's green a deep teal), with a soft halo
+  behind the logo. It's in each download bundle as `Intune logo.png`, and on the website as
   **Intune logo**.
 
 `tools/build.py --check` fails if an app has one without the other.
@@ -332,16 +334,15 @@ im.thumbnail((256, 256), Image.LANCZOS)
 logo = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
 logo.paste(im, ((256 - im.width) // 2, (256 - im.height) // 2), im)
 logo.save("apps/<Product>/<Series>/logo.png")
-
-# The Intune version: the same logo on opaque white, with padding.
-inner = logo.copy()
-inner.thumbnail((216, 216), Image.LANCZOS)
-tile = Image.new("RGB", (256, 256), (255, 255, 255))
-tile.paste(inner, ((256 - inner.width) // 2, (256 - inner.height) // 2), inner)
-tile.save("apps/<Product>/<Series>/logo-intune.png")
 ```
 
-Before committing, open the PNG and look at it:
+Then make the Intune version from it (needs Pillow):
+
+```sh
+python3 tools/intune_logo.py apps/<Product>/<Series>/logo.png    # -> logo-intune.png
+```
+
+Before committing, open both PNGs and look at them:
 - it's this product's current logo (for example PyCharm's, not PyCharm Community Edition's or
   an older design)
 - it's sharp at 256×256, with a transparent background

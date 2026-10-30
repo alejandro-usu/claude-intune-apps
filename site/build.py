@@ -119,7 +119,7 @@ def bundle_contents(app, manifest):
 
 
 def intune_logo_link(app):
-    """A download button for the app's logo-intune.png (white background, for Company Portal)."""
+    """A download button for the app's logo-intune.png (a full square, for Company Portal)."""
     if not os.path.isfile(os.path.join(build.APPS, app, "logo-intune.png")):
         return ""
     return (f' <a class="button secondary" href="apps/{html.escape(app)}/logo-intune.png" '
